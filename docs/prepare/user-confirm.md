@@ -4,7 +4,7 @@
 
 이 문서는 준비 작업의 산출물이다. 아래 Pending 항목에 답하지 않아도 문서 준비는 완료할 수 있지만, 영향을 받는 제품 구현은 시작하지 않는다. 추천안은 사용자 승인으로 간주하지 않는다.
 
-상태는 `Pending`(결정 필요), `Confirmed`(근거가 있는 결정), `Deferred`(후속 범위)만 사용한다. 변경 시 선택, 날짜, 결정 근거를 기록하고 해당 설계·계획을 함께 갱신한다.
+상태는 `Pending`(결정 필요), `Confirmed`(근거가 있는 결정), `Deferred`(후속 범위)만 사용한다. 변경 시 선택, 날짜, 결정 근거를 기록한다. 관련 설계·계획 문서 동기화는 별도 세션에서 수행한다.
 
 ## 기존 확정 원칙
 
@@ -21,14 +21,14 @@
 
 | ID | 결정 | 추천 | 상태 | 직접 영향 TASK |
 |---|---|---|---|---|
-| UC-001 | Turn 경계·수집 전략 | 로그 ID 중심, 조회 prototype 후 비차단 Hook MVP | Pending | 002, 003, 005, 006, 007, 011 |
-| UC-002 | 구현 언어·배포·OS | C#/.NET, Windows 우선 self-contained CLI | Pending | 002, 003, 013 |
-| UC-003 | 저장 위치·workspace 구분 | 전역 로컬 저장, worktree별 workspace | Pending | 002, 009, 010 |
-| UC-004 | Ledger 형식 | SQLite | Pending | 002, 009 |
-| UC-005 | child·미관측 usage의 MVP 범위 | 귀속 가능한 child 포함, 미귀속 공개 | Pending | 002, 007 |
-| UC-006 | 비용 환산 범위 | Later 유지, MVP는 지표 정의·한계 우선 | Pending | 002, 012 |
-| UC-007 | 메타데이터·보관·개인정보 | 본문 제외 최소 metadata + opt-in hash/label | Pending | 002, 009, 010, 011 |
-| UC-008 | CLI 계약·세션 선택 | 명시 선택자 + 유일 후보만 자동 선택 | Pending | 002, 010 |
+| UC-001 | Turn 경계·수집 전략 | 로그 ID 중심, 조회 prototype 후 비차단 Hook MVP | Confirmed | 002, 003, 005, 006, 007, 011 |
+| UC-002 | 구현 언어·배포·OS | C#/.NET, Windows 우선 self-contained CLI | Confirmed | 002, 003, 013 |
+| UC-003 | 저장 위치·workspace 구분 | 전역 로컬 저장, worktree별 workspace | Confirmed | 002, 009, 010 |
+| UC-004 | Ledger 형식 | SQLite | Confirmed | 002, 009 |
+| UC-005 | child·미관측 usage의 MVP 범위 | 귀속 가능한 child 포함, 미귀속 공개 | Confirmed | 002, 007 |
+| UC-006 | 비용 환산 범위 | Later 유지, MVP는 지표 정의·한계 우선 | Confirmed | 002, 012 |
+| UC-007 | 메타데이터·보관·개인정보 | 본문 제외 최소 metadata + opt-in hash/label | Confirmed | 002, 009, 010, 011 |
+| UC-008 | CLI 계약·세션 선택 | 명시 선택자 + 유일 후보만 자동 선택 | Confirmed | 002, 010 |
 
 위 표는 직접 차단만 요약한다. 선행 TASK가 차단되면 후속 TASK에도 전파되며, 자세한 의존 관계는 [plan.md](plan.md)에 있다.
 
@@ -54,8 +54,7 @@ architecture의 Data Flow·State·Adapter, plan의 수집·CLI·Hook 작업을 �
 
 ### User Decision
 
-**Pending** — 선택·결정일 미기록.
-
+**Confirmed — A** (2026-09-19) — 로그 ID 중심 + 조회 prototype → 비차단 Hook MVP.
 ## UC-002 — 제품 언어, 배포 방식, 지원 OS
 
 ### Context
@@ -78,8 +77,7 @@ architecture의 Technology Stack·Directory·Build, 모든 코드 경로와 테�
 
 ### User Decision
 
-**Pending** — 선택·결정일 미기록.
-
+**Confirmed — A** (2026-09-19) — C#/.NET 제품 + Windows 우선 self-contained CLI.
 ## UC-003 — 저장 위치와 workspace 경계
 
 ### Context
@@ -102,8 +100,7 @@ Discovery·Configuration·Workspace 모델·저장 및 CLI 테스트를 갱신�
 
 ### User Decision
 
-**Pending** — 선택·결정일 미기록.
-
+**Confirmed — C** (2026-09-19) — 전역 로컬 저장과 workspace-local 저장 모두 지원.
 ## UC-004 — Ledger 저장 형식
 
 ### Context
@@ -126,8 +123,7 @@ Storage interface는 유지할 수 있으나 architecture의 저장·복구·mig
 
 ### User Decision
 
-**Pending** — 선택·결정일 미기록.
-
+**Confirmed — A** (2026-09-19) — SQLite Ledger.
 ## UC-005 — 서브에이전트 포함과 측정 한계
 
 ### Context
@@ -150,8 +146,7 @@ root 집계 계약, UX scope 표시, source discovery, fixture, 인수 기준을
 
 ### User Decision
 
-**Pending** — 선택·결정일 미기록.
-
+**Confirmed — A** (2026-09-19) — 귀속 가능한 child usage를 root Turn에 포함하고 미귀속 usage는 별도 표시.
 ## UC-006 — 비용 추정을 MVP에 포함할지
 
 ### Context
@@ -174,8 +169,7 @@ design 범위·CLI 출력, architecture에 pricing component, TASK-012 포함 �
 
 ### User Decision
 
-**Pending** — 선택·결정일 미기록.
-
+**Confirmed — A** (2026-09-19) — 비용 추정은 Later로 유지하고 MVP는 토큰 사용량 계측에 집중.
 ## UC-007 — 수집 metadata와 보관 정책
 
 ### Context
@@ -198,8 +192,7 @@ ContextSnapshot, native usage 추출 정책, 진단 rotation, retention/purge와
 
 ### User Decision
 
-**Pending** — 선택·보관 기간·결정일 미기록.
-
+**Confirmed — A** (2026-09-19) — 최소 metadata 기본 수집 + 추가 정보 opt-in.
 ## UC-008 — CLI 조회 계약과 세션 모호성
 
 ### Context
@@ -222,8 +215,7 @@ FR-01~05·CLI 예시·exit code·선택자 테스트·설치 안내를 함께 �
 
 ### User Decision
 
-**Pending** — 선택·결정일 미기록.
-
+**Confirmed — C** (2026-09-19) — 여러 세션이 존재하면 대화형 선택; 비대화형 환경은 명시적 선택자 사용.
 ## UC-009 — Task 묶기와 통계
 
 ### Context / Options
@@ -254,4 +246,4 @@ CLI를 우선한다. Dashboard/TUI를 요청할 때 taste·impeccable을 적용�
 
 ## 결정을 기록하는 방법
 
-예: `UC-001=A, UC-002=A, ...`로 선택을 전달할 수 있다. 이는 입력 형식 예시이며 실제 결정이 아니다. 결정 이후 각 User Decision에 선택·날짜·근거를 기록하고, TASK-002에서 전체 문서의 범위·차단 관계를 동기화한다.
+예: `UC-001=A, UC-002=A, ...`로 선택을 전달할 수 있다. 이는 입력 형식 예시이며 실제 결정이 아니다. 결정 이후 각 User Decision에 선택·날짜·근거를 기록한다. design.md, architecture.md, plan.md 동기화는 별도 세션에서 수행한다.
