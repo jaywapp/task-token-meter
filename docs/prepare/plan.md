@@ -21,9 +21,9 @@ MVP의 사용자 인터페이스는 터미널 CLI다. 다중 세션은 번호 �
 
 ## 작업 모델 선택
 
-현재 실행 환경에 명시적으로 제공된 Codex 모델 중 `gpt-6-astra`, `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna`를 작업별로 배정한다. Claude 상위 모델을 설계·교차 리뷰에 쓰는 로컬 선호는 있지만 이 세션에는 호출 가능한 Claude 모델이 노출되지 않았으므로 가상의 Claude 버전이나 실행을 약속하지 않는다. 실행 시 Claude가 사용 가능하면 모델 가용성을 확인하고 설계/리뷰 작업의 배정을 갱신할 수 있다.
+사용자 요청에 따라 모델 배정은 `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna`로 구성한다. 기존 상위 모델 배정 작업인 TASK-001/002/007/014는 `gpt-5.6-sol`로 변경하며 추론 수준은 High를 유지한다. 조사·귀속·리뷰 작업은 명시된 근거와 fixture 검증을 충족해야 한다. 호출 가능한 Claude 모델은 이 세션에 노출되지 않았으므로 실행을 약속하지 않는다.
 
-여기의 모델 지정은 후속 실행을 위한 계획이며, 이번 준비 작업에 해당 모델의 서브에이전트를 실행했다는 뜻이 아니다. 추론 수준은 이 스킬의 `Low / Medium / High / Extra High` 표기를 쓴다.
+여기의 모델 지정은 후속 실행을 위한 계획이며, 이번 준비 작업에 해당 모델의 서브에이전트를 실행했다는 뜻이 아니다. 추론 수준은 이 스킬의 `Low / Medium / High / Extra High` 표기를 쓴다. 2026-09-20 모델 배정 변경은 이후 실행·재실행에 적용한다. 이미 Completed인 TASK-002의 실제 실행 모델을 소급해서 변경했다는 뜻이 아니다.
 
 ## 실행 순서와 병렬화
 
@@ -76,11 +76,11 @@ flowchart TD
 ### Agent
 Codex
 ### Model
-gpt-6-astra
+gpt-5.6-sol
 ### Reasoning Level
 High
 ### Reason
-서로 다른 계측 의미와 예외를 판단하는 작업이므로 상위 모델을 사용한다. 대규모 로그 전체를 모델 context에 넣지 않는다.
+Provider별 조사 범위와 검증 항목이 정의되어 있어 Sol에 High 추론으로 배정한다. 계측 의미와 예외는 근거·반례로 확인하며 대규모 로그 전체를 모델 context에 넣지 않는다.
 
 ## TASK-002 — 사용자 결정 반영과 준비 문서 동기화
 
@@ -101,11 +101,11 @@ UC-003=C의 두 저장 방식과 migration, UC-008=C의 대화형/비대화형 �
 ### Agent
 Codex
 ### Model
-gpt-6-astra
+gpt-5.6-sol
 ### Reasoning Level
 High
 ### Reason
-서로 다른 선택과 여러 문서의 의존 관계를 통합한다.
+확정된 사용자 선택을 문서에 반영하는 작업으로 Sol을 배정한다. High 추론으로 선택 원문과 문서 간 의존 관계를 대조한다.
 
 ## TASK-003 — 빌드 가능한 CLI 프로젝트와 계약 타입
 
@@ -216,11 +216,11 @@ root 상세와 child 상세를 함께 조회해도 고유 실행 합계가 중�
 ### Agent
 Codex
 ### Model
-gpt-6-astra
+gpt-5.6-sol
 ### Reasoning Level
 High
 ### Reason
-Provider 차이를 통합하는 핵심 설계 구현이며 오류가 전체 결과를 왜곡한다.
+선행 Adapter 계약과 fixture를 바탕으로 Sol이 귀속 로직을 구현한다. High 추론을 유지하고 root/child 중복·미귀속·늦은 갱신의 인수 기준으로 정확성을 검증한다.
 
 ## TASK-008 — 정규화와 품질 지표
 
@@ -380,11 +380,11 @@ Critical/High 미해결 이슈가 없고 문서 명령이 배포 산출물에서
 ### Agent
 Codex
 ### Model
-gpt-6-astra
+gpt-5.6-sol
 ### Reasoning Level
 High
 ### Reason
-핵심 오류와 개인정보 누출을 독립 검토하고 전체 결과를 통합하는 작업이다.
+Sol의 별도 리뷰 세션에 High 추론으로 배정한다. 구현 결과의 정확성·개인정보·복구 동작을 증거와 대조하며 기존 Critical/High 이슈 처리 기준을 유지한다.
 
 ## TASK-015 — 저장 모드 전환과 복구
 
