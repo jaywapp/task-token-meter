@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "fixtureId": "codex-interrupt-late-child",
+  "inputFiles": ["codex/interrupt-late-child/revision-1-main.jsonl", "codex/interrupt-late-child/revision-2-child.jsonl", "codex/interrupt-late-child/hooks.json"],
+  "provider": "codex",
+  "providerVersion": "0.153.4",
+  "recordShape": "codex-rollout-hook-lifecycle-v0.153.4-synthetic",
+  "synthetic": true,
+  "claimIds": ["C-CODEX-014", "C-CODEX-015"],
+  "capability": {"turnSnapshotAuthority": true, "rootSessionSource": "record-session-id", "rootScope": "main-only", "interruptEvidence": "hook"},
+  "oracleMethod": "synthetic-manual-arithmetic-v1",
+  "expected": {
+    "rootTurnKey": {"rootSessionId": "synthetic-codex-session-interrupt", "rootTurnId": "synthetic-codex-turn-interrupt-root"},
+    "revisions": [
+      {"revision": 1, "nativeUsage": {"input_tokens": 45, "cached_input_tokens": 15, "output_tokens": 15, "reasoning_output_tokens": 3, "total_tokens": 60, "cache_write_input_tokens": 0}, "normalizedUsage": {"uncachedInput": 30, "cacheRead": 15, "cacheWrite": 0, "inputTotal": 45, "output": 15, "reasoning": 3, "processedTokens": 60, "nativeTotal": 60, "knownSubtotal": 60, "unknownObservationCount": 1}, "membership": [{"executionId": "synthetic-codex-thread-interrupt-main/synthetic-codex-turn-interrupt-root", "originSessionId": "synthetic-codex-session-interrupt", "attributionStatus": "attributed", "evidence": "main-interrupt"}], "executionState": "interrupted", "quality": "provisional", "diagnostics": ["child_source_pending", "subagent_interrupt_hook_unsupported"]},
+      {"revision": 2, "nativeUsage": {"input_tokens": 60, "cached_input_tokens": 20, "output_tokens": 20, "reasoning_output_tokens": 4, "total_tokens": 80, "cache_write_input_tokens": 0}, "normalizedUsage": {"uncachedInput": 40, "cacheRead": 20, "cacheWrite": 0, "inputTotal": 60, "output": 20, "reasoning": 4, "processedTokens": 80, "nativeTotal": 80, "knownSubtotal": 80, "unknownObservationCount": 0}, "membership": [{"executionId": "synthetic-codex-thread-interrupt-main/synthetic-codex-turn-interrupt-root", "originSessionId": "synthetic-codex-session-interrupt", "attributionStatus": "attributed", "evidence": "main-interrupt"}, {"executionId": "synthetic-codex-thread-interrupt-child/synthetic-codex-turn-interrupt-child", "originSessionId": "synthetic-codex-session-interrupt", "attributionStatus": "attributed", "evidence": "late-subagent-stop"}], "executionState": "interrupted", "quality": "observed", "diagnostics": ["subagent_interrupt_hook_unsupported"]}
+    ],
+    "diagnostics": []
+  },
+  "manualCalculation": ["revision-1 main: 45 + 15 = 60", "late child: 15 + 5 = 20", "revision-2 same root key: 60 + 20 = 80", "main interrupt does not imply a child Interrupt event"]
+}

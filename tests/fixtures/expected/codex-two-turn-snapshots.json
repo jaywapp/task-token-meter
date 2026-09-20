@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "fixtureId": "codex-two-turn-snapshots",
+  "inputFiles": ["codex/two-turn-snapshots.jsonl"],
+  "provider": "codex",
+  "providerVersion": "0.153.4",
+  "recordShape": "codex-rollout-token-usage-record-v0.153.4-synthetic",
+  "synthetic": true,
+  "claimIds": ["C-CODEX-003", "C-CODEX-004", "C-CODEX-005", "C-CODEX-010", "C-CODEX-011"],
+  "capability": {"usageKinds": ["call-delta", "turn-snapshot", "session-snapshot"], "turnSnapshotAuthority": true, "rootScope": "main-only"},
+  "oracleMethod": "synthetic-manual-arithmetic-v1",
+  "expected": {
+    "turns": [
+      {"turnKey": {"rootSessionId": "synthetic-codex-session-two-turn", "rootTurnId": "synthetic-codex-turn-001"}, "nativeUsage": {"input_tokens": 180, "cached_input_tokens": 50, "output_tokens": 70, "reasoning_output_tokens": 15, "total_tokens": 250, "cache_write_input_tokens": 0}, "normalizedUsage": {"uncachedInput": 130, "cacheRead": 50, "cacheWrite": 0, "cacheWrite5m": null, "cacheWrite1h": null, "inputTotal": 180, "output": 70, "reasoning": 15, "processedTokens": 250, "nativeTotal": 250, "knownSubtotal": 250, "unknownObservationCount": 0, "apiCallCount": 2, "maxObservedInput": 100}, "membership": [{"executionId": "synthetic-codex-thread-two-turn/synthetic-codex-turn-001", "originSessionId": "synthetic-codex-session-two-turn", "attributionStatus": "attributed", "evidence": "record-session-and-root-turn"}], "executionState": "unknown", "quality": "observed", "diagnostics": []},
+      {"turnKey": {"rootSessionId": "synthetic-codex-session-two-turn", "rootTurnId": "synthetic-codex-turn-002"}, "nativeUsage": {"input_tokens": 40, "cached_input_tokens": 10, "output_tokens": 10, "reasoning_output_tokens": 2, "total_tokens": 50, "cache_write_input_tokens": 0}, "normalizedUsage": {"uncachedInput": 30, "cacheRead": 10, "cacheWrite": 0, "cacheWrite5m": null, "cacheWrite1h": null, "inputTotal": 40, "output": 10, "reasoning": 2, "processedTokens": 50, "nativeTotal": 50, "knownSubtotal": 50, "unknownObservationCount": 0, "apiCallCount": 1, "maxObservedInput": 40}, "membership": [{"executionId": "synthetic-codex-thread-two-turn/synthetic-codex-turn-002", "originSessionId": "synthetic-codex-session-two-turn", "attributionStatus": "attributed", "evidence": "record-session-and-root-turn"}], "executionState": "unknown", "quality": "observed", "diagnostics": []}
+    ],
+    "sessionProcessedTokens": 300,
+    "diagnostics": []
+  },
+  "manualCalculation": ["turn-001 deltas: 100 + 150 = final turn snapshot 250", "turn-001: fresh 180 - 50 = 130; processed 180 + 70 = 250", "turn-002: fresh 40 - 10 = 30; processed 40 + 10 = 50", "thread snapshot 300 is diagnostic only and is not added to either Turn"]
+}

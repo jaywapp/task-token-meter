@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "fixtureId": "claude-main-child",
+  "inputFiles": ["claude/main-child/main.jsonl", "claude/main-child/child.jsonl"],
+  "provider": "claude-code",
+  "providerVersion": "2.1.278",
+  "recordShape": "claude-transcript-main-subagent-v2.1.278-synthetic",
+  "synthetic": true,
+  "claimIds": ["C-CLAUDE-003", "C-CLAUDE-011"],
+  "oracleMethod": "synthetic-manual-arithmetic-v1",
+  "expected": {
+    "turns": [{
+      "turnKey": {"rootSessionId": "synthetic-claude-session-main-child", "rootTurnId": "synthetic-claude-prompt-main-child"},
+      "nativeUsage": {"aggregate": {"input_tokens": 7, "cache_creation_input_tokens": 0, "cache_read_input_tokens": 8, "output_tokens": 9}, "executions": 2},
+      "normalizedUsage": {"uncachedInput": 7, "cacheRead": 8, "cacheWrite": 0, "cacheWrite5m": 0, "cacheWrite1h": 0, "inputTotal": 15, "output": 9, "reasoning": null, "processedTokens": 24, "nativeTotal": null, "knownSubtotal": 24, "unknownObservationCount": 0, "apiCallCount": 2, "maxObservedInput": 10},
+      "membership": [{"executionId": "synthetic-claude-request-main", "originSessionId": "synthetic-claude-session-main-child", "attributionStatus": "attributed", "evidence": "main-prompt-id"}, {"executionId": "synthetic-claude-request-child", "originSessionId": "synthetic-claude-session-child", "attributionStatus": "attributed", "evidence": "child-user-prompt-id-and-parent-session"}],
+      "executionState": "unknown",
+      "quality": "observed",
+      "diagnostics": []
+    }],
+    "unattributed": [],
+    "diagnostics": []
+  },
+  "manualCalculation": ["main: 5 + 5 + 0 + 5 = 15", "child: 2 + 3 + 0 + 4 = 9", "root: 15 + 9 = 24; child assistant needs no promptId"]
+}

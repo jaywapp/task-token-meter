@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "fixtureId": "claude-missing-prompt-meta",
+  "inputFiles": ["claude/missing-prompt-meta.jsonl"],
+  "provider": "claude-code",
+  "providerVersion": "2.1.278",
+  "recordShape": "claude-transcript-mixed-entry-v2.1.278-synthetic",
+  "synthetic": true,
+  "claimIds": ["C-CLAUDE-002", "C-CLAUDE-003"],
+  "oracleMethod": "synthetic-manual-arithmetic-v1",
+  "expected": {
+    "turns": [],
+    "nativeUsage": {"unattributedObservation": {"input_tokens": 2, "cache_creation_input_tokens": 0, "cache_read_input_tokens": 0, "output_tokens": 3}},
+    "normalizedUsage": {"turnProjection": null, "unattributedKnownSubtotal": 5, "unknownObservationCount": 1},
+    "membership": [{"executionId": "synthetic-claude-request-unattributed", "originSessionId": "synthetic-claude-session-missing-prompt", "attributionStatus": "unattributed", "evidence": "missing-human-prompt-id"}],
+    "quality": "partial",
+    "diagnostics": ["missing_prompt_identity", "non_human_entry_does_not_open_turn"]
+  },
+  "manualCalculation": ["2 + 0 + 0 + 3 = 5 remains unattributed", "human without promptId, tool-result, meta, and compact create zero Turns"]
+}

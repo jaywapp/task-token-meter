@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "provider": "claude",
+  "supportedProviderVersion": "2.1.278",
+  "settingsFormat": "claude-settings-json",
+  "settingsFile": "~/.claude/settings.json",
+  "events": ["Stop", "SubagentStop", "StopFailure"],
+  "neutralStdout": "empty",
+  "managedMarker": "task-token-meter-v1",
+  "wrapper": "task-token-meter-hook.cmd"
+}

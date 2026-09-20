@@ -1,0 +1,6 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>TaskTokenMeter.Core</RootNamespace>
+    <AssemblyName>TaskTokenMeter.Core</AssemblyName>
+  </PropertyGroup>
+</Project>

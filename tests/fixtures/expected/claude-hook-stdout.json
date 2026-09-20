@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "fixtureId": "claude-hook-stdout",
+  "inputFiles": ["claude/hook-stdout.json"],
+  "provider": "claude-code",
+  "providerVersion": "2.1.278",
+  "recordShape": "claude-hook-command-response-v2.1.278-synthetic",
+  "synthetic": true,
+  "claimIds": ["C-CLAUDE-015", "C-CLAUDE-016"],
+  "oracleMethod": "synthetic-contract-table-v1",
+  "expected": {
+    "nativeUsage": null,
+    "normalizedUsage": null,
+    "membership": [],
+    "quality": "observed",
+    "cases": [{"caseId": "synthetic-claude-empty-stdout", "accepted": true, "neutral": true, "diagnostics": []}, {"caseId": "synthetic-claude-context-stdout", "accepted": false, "neutral": false, "diagnostics": ["hook_context_output_forbidden"]}, {"caseId": "synthetic-claude-block-response", "accepted": false, "neutral": false, "diagnostics": ["hook_continuation_forbidden"]}],
+    "diagnostics": []
+  },
+  "manualCalculation": ["neutral response is exit 0 plus zero stdout bytes", "context or block output can alter model execution and is forbidden"]
+}

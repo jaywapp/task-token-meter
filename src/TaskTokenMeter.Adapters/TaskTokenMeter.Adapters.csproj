@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>TaskTokenMeter.Adapters</RootNamespace>
+    <AssemblyName>TaskTokenMeter.Adapters</AssemblyName>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\TaskTokenMeter.Core\TaskTokenMeter.Core.csproj" />
+  </ItemGroup>
+</Project>

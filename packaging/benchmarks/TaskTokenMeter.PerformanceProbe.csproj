@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>TaskTokenMeter.PerformanceProbe</RootNamespace>
+    <AssemblyName>task-token-meter-performance-probe</AssemblyName>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\TaskTokenMeter.Cli\TaskTokenMeter.Cli.csproj" />
+  </ItemGroup>
+</Project>

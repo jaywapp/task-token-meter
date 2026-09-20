@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "fixtureId": "claude-alias-conflict",
+  "inputFiles": ["claude/alias-conflict.jsonl"],
+  "provider": "claude-code",
+  "providerVersion": "2.1.278",
+  "recordShape": "claude-transcript-assistant-usage-v2.1.278-synthetic",
+  "synthetic": true,
+  "claimIds": ["C-CLAUDE-005", "C-CLAUDE-006"],
+  "oracleMethod": "synthetic-manual-arithmetic-v1",
+  "expected": {
+    "turns": [{
+      "turnKey": {"rootSessionId": "synthetic-claude-session-conflict", "rootTurnId": "synthetic-claude-prompt-conflict"},
+      "nativeUsage": {"conflictingObservations": [{"input_tokens": 10, "output_tokens": 30, "model": "synthetic-claude-model-a"}, {"input_tokens": 11, "output_tokens": 40, "model": "synthetic-claude-model-b"}], "aggregate": null},
+      "normalizedUsage": {"uncachedInput": null, "cacheRead": null, "cacheWrite": null, "cacheWrite5m": null, "cacheWrite1h": null, "inputTotal": null, "output": null, "reasoning": null, "processedTokens": null, "nativeTotal": null, "knownSubtotal": null, "unknownObservationCount": 1, "apiCallCount": null, "maxObservedInput": null},
+      "membership": [{"executionId": "synthetic-claude-request-conflict", "originSessionId": "synthetic-claude-session-conflict", "attributionStatus": "invalid", "evidence": "conflicting-immutable-fields"}],
+      "executionState": "unknown",
+      "quality": "invalid",
+      "diagnostics": ["invalid_alias_conflict"]
+    }],
+    "unattributed": [],
+    "diagnostics": ["invalid_alias_conflict"]
+  },
+  "manualCalculation": ["no aggregate: input 10 != 11 and model-a != model-b", "field-wise maxima 11 and 40 must not be combined"]
+}

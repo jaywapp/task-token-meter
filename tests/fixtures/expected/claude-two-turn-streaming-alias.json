@@ -1,0 +1,37 @@
+{
+  "schemaVersion": 1,
+  "fixtureId": "claude-two-turn-streaming-alias",
+  "inputFiles": ["claude/two-turn-streaming-alias.jsonl"],
+  "provider": "claude-code",
+  "providerVersion": "2.1.278",
+  "recordShape": "claude-transcript-assistant-usage-v2.1.278-synthetic",
+  "synthetic": true,
+  "claimIds": ["C-CLAUDE-003", "C-CLAUDE-004", "C-CLAUDE-005", "C-CLAUDE-006", "C-CLAUDE-009", "C-CLAUDE-010"],
+  "oracleMethod": "synthetic-manual-arithmetic-v1",
+  "expected": {
+    "turns": [
+      {
+        "turnKey": {"rootSessionId": "synthetic-claude-session-two-turn", "rootTurnId": "synthetic-claude-prompt-001"},
+        "nativeUsage": {"input_tokens": 10, "cache_creation_input_tokens": 5, "cache_read_input_tokens": 20, "output_tokens": 338, "cache_creation": {"ephemeral_5m_input_tokens": 5, "ephemeral_1h_input_tokens": 0}, "output_tokens_details": {"thinking_tokens": 7}},
+        "normalizedUsage": {"uncachedInput": 10, "cacheRead": 20, "cacheWrite": 5, "cacheWrite5m": 5, "cacheWrite1h": 0, "inputTotal": 35, "output": 338, "reasoning": null, "processedTokens": 373, "nativeTotal": null, "knownSubtotal": 373, "unknownObservationCount": 0, "apiCallCount": 1, "maxObservedInput": 35},
+        "membership": [{"executionId": "synthetic-claude-request-a", "originSessionId": "synthetic-claude-session-two-turn", "attributionStatus": "attributed", "evidence": "prompt-order-and-parent-chain"}],
+        "executionState": "unknown",
+        "quality": "observed",
+        "diagnostics": ["reasoning_semantics_unknown"]
+      },
+      {
+        "turnKey": {"rootSessionId": "synthetic-claude-session-two-turn", "rootTurnId": "synthetic-claude-prompt-002"},
+        "nativeUsage": {"input_tokens": 4, "cache_creation_input_tokens": 6, "cache_read_input_tokens": 30, "output_tokens": 25, "cache_creation": {"ephemeral_5m_input_tokens": 1, "ephemeral_1h_input_tokens": 5}},
+        "normalizedUsage": {"uncachedInput": 4, "cacheRead": 30, "cacheWrite": 6, "cacheWrite5m": 1, "cacheWrite1h": 5, "inputTotal": 40, "output": 25, "reasoning": null, "processedTokens": 65, "nativeTotal": null, "knownSubtotal": 65, "unknownObservationCount": 0, "apiCallCount": 1, "maxObservedInput": 40},
+        "membership": [{"executionId": "synthetic-claude-request-b", "originSessionId": "synthetic-claude-session-two-turn", "attributionStatus": "attributed", "evidence": "request-message-alias"}],
+        "executionState": "unknown",
+        "quality": "observed",
+        "diagnostics": []
+      }
+    ],
+    "sessionProcessedTokens": 438,
+    "unattributed": [],
+    "diagnostics": []
+  },
+  "manualCalculation": ["turn-001: 10 + 20 + 5 + 338 = 373", "turn-002: 4 + 30 + 6 + 25 = 65", "session: 373 + 65 = 438", "streaming: max(9, 9, 338) = 338; alias fallback remains one call"]
+}

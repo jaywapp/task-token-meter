@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "fixtureId": "codex-nested-child",
+  "inputFiles": ["codex/nested-child.jsonl"],
+  "provider": "codex",
+  "providerVersion": "0.153.4",
+  "recordShape": "codex-rollout-token-usage-record-v0.153.4-synthetic",
+  "synthetic": true,
+  "claimIds": ["C-CODEX-008", "C-CODEX-009"],
+  "capability": {"turnSnapshotAuthority": true, "rootSessionSource": "record-session-id", "rootScope": "main-only"},
+  "oracleMethod": "synthetic-manual-arithmetic-v1",
+  "expected": {
+    "turns": [{"turnKey": {"rootSessionId": "synthetic-codex-root-session-nested", "rootTurnId": "synthetic-codex-root-turn-nested"}, "nativeUsage": {"input_tokens": 63, "cached_input_tokens": 18, "output_tokens": 17, "reasoning_output_tokens": 4, "total_tokens": 80, "cache_write_input_tokens": 0}, "normalizedUsage": {"uncachedInput": 45, "cacheRead": 18, "cacheWrite": 0, "cacheWrite5m": null, "cacheWrite1h": null, "inputTotal": 63, "output": 17, "reasoning": 4, "processedTokens": 80, "nativeTotal": 80, "knownSubtotal": 80, "unknownObservationCount": 0, "apiCallCount": 3, "maxObservedInput": 40}, "membership": [{"executionId": "synthetic-codex-root-thread-nested/synthetic-codex-root-turn-nested", "originSessionId": "synthetic-codex-root-session-nested", "attributionStatus": "attributed", "evidence": "root-record"}, {"executionId": "synthetic-codex-child-thread-level-1/synthetic-codex-child-turn-level-1", "originSessionId": "synthetic-codex-root-session-nested", "attributionStatus": "attributed", "evidence": "parent-edge-to-root"}, {"executionId": "synthetic-codex-child-thread-level-2/synthetic-codex-child-turn-level-2", "originSessionId": "synthetic-codex-root-session-nested", "attributionStatus": "attributed", "evidence": "nested-parent-edge-and-record-session"}], "executionState": "unknown", "quality": "observed", "diagnostics": []}],
+    "diagnostics": []
+  },
+  "manualCalculation": ["root 50 + child-level-1 20 + child-level-2 10 = 80", "session_id remains synthetic-codex-root-session-nested even though level-2 immediate parent is level-1", "fresh 63 - 18 = 45"]
+}

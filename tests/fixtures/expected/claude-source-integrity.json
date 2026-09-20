@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "fixtureId": "claude-source-integrity",
+  "inputFiles": ["claude/source-integrity.json"],
+  "provider": "claude-code",
+  "providerVersion": "2.1.278",
+  "recordShape": "synthetic-source-lines-container-v1",
+  "synthetic": true,
+  "claimIds": ["C-CLAUDE-003", "C-CLAUDE-013"],
+  "oracleMethod": "synthetic-manual-arithmetic-v1",
+  "expected": {
+    "turns": [{"turnKey": {"rootSessionId": "synthetic-claude-session-integrity", "rootTurnId": "synthetic-claude-prompt-integrity"}, "nativeUsage": {"input_tokens": 3, "cache_creation_input_tokens": 0, "cache_read_input_tokens": 2, "output_tokens": 4}, "normalizedUsage": {"uncachedInput": 3, "cacheRead": 2, "cacheWrite": 0, "cacheWrite5m": 0, "cacheWrite1h": 0, "inputTotal": 5, "output": 4, "reasoning": null, "processedTokens": 9, "nativeTotal": null, "knownSubtotal": 9, "unknownObservationCount": 2, "apiCallCount": 1, "maxObservedInput": 5}, "membership": [{"executionId": "synthetic-claude-request-integrity", "originSessionId": "synthetic-claude-session-integrity", "attributionStatus": "attributed", "evidence": "valid-records-only"}], "executionState": "unknown", "quality": "partial", "diagnostics": ["malformed_json_line", "incomplete_tail"]}],
+    "diagnostics": ["malformed_json_line", "incomplete_tail"]
+  },
+  "manualCalculation": ["valid records: 3 + 2 + 0 + 4 = 9", "middle corrupt line and incomplete tail do not erase the valid subtotal"]
+}
