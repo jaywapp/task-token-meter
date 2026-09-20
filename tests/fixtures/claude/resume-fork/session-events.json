@@ -1,0 +1,1 @@
+{"synthetic":true,"providerVersion":"2.1.278","events":[{"hook_event_name":"SessionStart","session_id":"synthetic-claude-session-lineage","source":"resume","stdout":"","exitCode":0},{"hook_event_name":"SessionStart","session_id":"synthetic-claude-session-fork","source":"fork","stdout":"","exitCode":0}]}

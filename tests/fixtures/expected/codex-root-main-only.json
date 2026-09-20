@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "fixtureId": "codex-root-main-only",
+  "inputFiles": ["codex/root-main-only/main.jsonl", "codex/root-main-only/child-a.jsonl", "codex/root-main-only/child-b.jsonl"],
+  "provider": "codex",
+  "providerVersion": "0.153.4",
+  "recordShape": "codex-rollout-token-usage-record-v0.153.4-synthetic",
+  "synthetic": true,
+  "claimIds": ["C-CODEX-006", "C-CODEX-007", "C-CODEX-008"],
+  "capability": {"turnSnapshotAuthority": true, "rootSessionSource": "record-session-id", "rootScope": "main-only"},
+  "oracleMethod": "synthetic-manual-arithmetic-v1",
+  "expected": {
+    "turns": [{"turnKey": {"rootSessionId": "synthetic-codex-root-session-main-only", "rootTurnId": "synthetic-codex-root-turn-main-only"}, "nativeUsage": {"input_tokens": 150, "cached_input_tokens": 55, "output_tokens": 35, "reasoning_output_tokens": 8, "total_tokens": 185, "cache_write_input_tokens": 0}, "normalizedUsage": {"uncachedInput": 95, "cacheRead": 55, "cacheWrite": 0, "cacheWrite5m": null, "cacheWrite1h": null, "inputTotal": 150, "output": 35, "reasoning": 8, "processedTokens": 185, "nativeTotal": 185, "knownSubtotal": 185, "unknownObservationCount": 0, "apiCallCount": 3, "maxObservedInput": 100}, "membership": [{"executionId": "synthetic-codex-root-thread-main-only/synthetic-codex-root-turn-main-only", "originSessionId": "synthetic-codex-root-session-main-only", "attributionStatus": "attributed", "evidence": "root-record"}, {"executionId": "synthetic-codex-child-thread-a/synthetic-codex-child-turn-a", "originSessionId": "synthetic-codex-root-session-main-only", "attributionStatus": "attributed", "evidence": "main-only-child-union"}, {"executionId": "synthetic-codex-child-thread-b/synthetic-codex-child-turn-b", "originSessionId": "synthetic-codex-root-session-main-only", "attributionStatus": "attributed", "evidence": "main-only-child-union"}], "executionState": "unknown", "quality": "observed", "diagnostics": []}],
+    "diagnostics": []
+  },
+  "manualCalculation": ["root 120 + child-a 40 + child-b 25 = 185", "input 100 + 30 + 20 = 150", "cached 40 + 10 + 5 = 55", "fresh 150 - 55 = 95"]
+}

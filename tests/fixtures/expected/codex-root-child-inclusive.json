@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "fixtureId": "codex-root-child-inclusive",
+  "inputFiles": ["codex/root-child-inclusive/main.jsonl", "codex/root-child-inclusive/child.jsonl"],
+  "provider": "codex",
+  "providerVersion": "synthetic-future-version",
+  "recordShape": "codex-rollout-child-inclusive-synthetic-v1",
+  "synthetic": true,
+  "claimIds": ["C-CODEX-006", "C-CODEX-007"],
+  "capability": {"turnSnapshotAuthority": true, "rootSessionSource": "record-session-id", "rootScope": "child-inclusive"},
+  "oracleMethod": "synthetic-manual-arithmetic-v1",
+  "expected": {
+    "turns": [{"turnKey": {"rootSessionId": "synthetic-codex-root-session-inclusive", "rootTurnId": "synthetic-codex-root-turn-inclusive"}, "nativeUsage": {"input_tokens": 150, "cached_input_tokens": 55, "output_tokens": 35, "reasoning_output_tokens": 8, "total_tokens": 185, "cache_write_input_tokens": 0}, "normalizedUsage": {"uncachedInput": 95, "cacheRead": 55, "cacheWrite": 0, "cacheWrite5m": null, "cacheWrite1h": null, "inputTotal": 150, "output": 35, "reasoning": 8, "processedTokens": 185, "nativeTotal": 185, "knownSubtotal": 185, "unknownObservationCount": 0, "apiCallCount": null, "maxObservedInput": null}, "membership": [{"executionId": "synthetic-codex-root-thread-inclusive/synthetic-codex-root-turn-inclusive", "originSessionId": "synthetic-codex-root-session-inclusive", "attributionStatus": "attributed", "evidence": "child-inclusive-root-snapshot"}, {"executionId": "synthetic-codex-child-thread-inclusive/synthetic-codex-child-turn-inclusive", "originSessionId": "synthetic-codex-root-session-inclusive", "attributionStatus": "attributed-already-in-root", "evidence": "child-inclusive-capability"}], "executionState": "unknown", "quality": "observed", "diagnostics": []}],
+    "diagnostics": []
+  },
+  "manualCalculation": ["authoritative child-inclusive root snapshot is 185", "child snapshot 40 is membership evidence and adds 0", "fresh 150 - 55 = 95; processed 150 + 35 = 185"]
+}

@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "fixtureId": "claude-lifecycle",
+  "inputFiles": ["claude/lifecycle.json"],
+  "provider": "claude-code",
+  "providerVersion": "2.1.278",
+  "recordShape": "claude-hook-lifecycle-v2.1.278-synthetic",
+  "synthetic": true,
+  "claimIds": ["C-CLAUDE-013", "C-CLAUDE-014"],
+  "oracleMethod": "synthetic-manual-arithmetic-v1",
+  "expected": {
+    "cases": [
+      {"caseId": "synthetic-claude-stop-missing", "nativeUsage": {"input_tokens": 1, "cache_creation_input_tokens": 0, "cache_read_input_tokens": 0, "output_tokens": 2}, "normalizedUsage": {"uncachedInput": 1, "cacheRead": 0, "cacheWrite": 0, "inputTotal": 1, "output": 2, "reasoning": null, "processedTokens": 3, "knownSubtotal": 3, "unknownObservationCount": 0}, "membership": [], "executionState": "unknown", "quality": "provisional", "diagnostics": ["stop_missing_not_completed"]},
+      {"caseId": "synthetic-claude-stop-failure", "nativeUsage": {"input_tokens": 2, "cache_creation_input_tokens": 0, "cache_read_input_tokens": 0, "output_tokens": 3}, "normalizedUsage": {"uncachedInput": 2, "cacheRead": 0, "cacheWrite": 0, "inputTotal": 2, "output": 3, "reasoning": null, "processedTokens": 5, "knownSubtotal": 5, "unknownObservationCount": 0}, "membership": [], "executionState": "failed", "quality": "observed", "diagnostics": ["stop_failure"]},
+      {"caseId": "synthetic-claude-tail-lag", "rootTurnKey": {"rootSessionId": "synthetic-claude-session-lifecycle", "rootTurnId": "synthetic-claude-prompt-tail-lag"}, "revisions": [{"revision": 1, "nativeUsage": {"input_tokens": 2, "output_tokens": 3}, "normalizedUsage": {"inputTotal": 2, "output": 3, "processedTokens": 5, "knownSubtotal": 5, "unknownObservationCount": 1}, "membership": [], "executionState": "completed", "quality": "provisional", "diagnostics": ["incomplete_tail"]}, {"revision": 2, "nativeUsage": {"input_tokens": 2, "output_tokens": 10}, "normalizedUsage": {"inputTotal": 2, "output": 10, "processedTokens": 12, "knownSubtotal": 12, "unknownObservationCount": 0}, "membership": [], "executionState": "completed", "quality": "observed", "diagnostics": []}]}
+    ],
+    "diagnostics": []
+  },
+  "manualCalculation": ["missing Stop: 1 + 2 = 3 but execution is not completed", "StopFailure: 2 + 3 = 5 and execution is failed", "tail lag revision-1: 2 + 3 = 5; revision-2 replaces snapshot with 2 + 10 = 12"]
+}

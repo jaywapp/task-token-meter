@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "fixtureId": "codex-usage-edge-cases",
+  "inputFiles": ["codex/usage-edge-cases.jsonl"],
+  "provider": "codex",
+  "providerVersion": "0.153.4",
+  "recordShape": "codex-rollout-token-usage-edge-cases-synthetic",
+  "synthetic": true,
+  "claimIds": ["C-CODEX-008", "C-CODEX-010", "C-CODEX-011", "C-CODEX-012", "C-CODEX-013"],
+  "capability": {"turnSnapshotAuthority": true, "rootSessionSource": "record-session-id", "rootScope": "main-only", "cacheWriteSemantics": "included-unknown"},
+  "oracleMethod": "synthetic-manual-arithmetic-v1",
+  "expected": {
+    "cases": [
+      {"caseId": "synthetic-codex-turn-total-only", "nativeUsage": {"total_tokens": 77}, "normalizedUsage": {"uncachedInput": null, "cacheRead": null, "cacheWrite": null, "cacheWrite5m": null, "cacheWrite1h": null, "inputTotal": null, "output": null, "reasoning": null, "processedTokens": null, "nativeTotal": 77, "knownSubtotal": null, "unknownObservationCount": 1, "apiCallCount": 1, "maxObservedInput": null}, "membership": [{"executionId": "synthetic-codex-thread-edge/synthetic-codex-turn-total-only", "originSessionId": "synthetic-codex-session-edge", "attributionStatus": "attributed", "evidence": "record-session-and-root-turn"}], "quality": "provisional", "diagnostics": ["total_only_semantics_unknown"]},
+      {"caseId": "synthetic-codex-turn-cache-write", "nativeUsage": {"input_tokens": 100, "cached_input_tokens": 20, "output_tokens": 30, "reasoning_output_tokens": 5, "total_tokens": 130, "cache_write_input_tokens": 7}, "normalizedUsage": {"uncachedInput": 80, "cacheRead": 20, "cacheWrite": 7, "cacheWrite5m": null, "cacheWrite1h": null, "inputTotal": 100, "output": 30, "reasoning": 5, "processedTokens": 130, "nativeTotal": 130, "knownSubtotal": 130, "unknownObservationCount": 0, "apiCallCount": 1, "maxObservedInput": 100}, "membership": [{"executionId": "synthetic-codex-thread-edge/synthetic-codex-turn-cache-write", "originSessionId": "synthetic-codex-session-edge", "attributionStatus": "attributed", "evidence": "record-session-and-root-turn"}], "quality": "provisional", "diagnostics": ["cache_write_semantics_unknown"]},
+      {"caseId": "synthetic-codex-turn-missing-root", "nativeUsage": {"input_tokens": 10, "cached_input_tokens": 0, "output_tokens": 5, "reasoning_output_tokens": 0, "total_tokens": 15, "cache_write_input_tokens": 0}, "normalizedUsage": null, "membership": [{"executionId": "synthetic-codex-thread-edge/synthetic-codex-turn-missing-root", "originSessionId": "synthetic-codex-session-edge", "attributionStatus": "unattributed", "evidence": "missing-root-turn-id"}], "quality": "unsupported", "diagnostics": ["missing_root_turn_id"]},
+      {"caseId": "synthetic-codex-turn-cached-invalid", "nativeUsage": {"input_tokens": 10, "cached_input_tokens": 11, "output_tokens": 5, "reasoning_output_tokens": 0, "total_tokens": 15, "cache_write_input_tokens": 0}, "normalizedUsage": null, "membership": [{"executionId": "synthetic-codex-thread-edge/synthetic-codex-turn-cached-invalid", "originSessionId": "synthetic-codex-session-edge", "attributionStatus": "invalid", "evidence": "cached-exceeds-input"}], "quality": "invalid", "diagnostics": ["cached_input_exceeds_input"]},
+      {"caseId": "synthetic-codex-turn-reasoning-invalid", "nativeUsage": {"input_tokens": 10, "cached_input_tokens": 1, "output_tokens": 5, "reasoning_output_tokens": 6, "total_tokens": 15, "cache_write_input_tokens": 0}, "normalizedUsage": null, "membership": [{"executionId": "synthetic-codex-thread-edge/synthetic-codex-turn-reasoning-invalid", "originSessionId": "synthetic-codex-session-edge", "attributionStatus": "invalid", "evidence": "reasoning-exceeds-output"}], "quality": "invalid", "diagnostics": ["reasoning_output_exceeds_output"]},
+      {"caseId": "synthetic-codex-turn-total-invalid", "nativeUsage": {"input_tokens": 10, "cached_input_tokens": 1, "output_tokens": 5, "reasoning_output_tokens": 1, "total_tokens": 16, "cache_write_input_tokens": 0}, "normalizedUsage": null, "membership": [{"executionId": "synthetic-codex-thread-edge/synthetic-codex-turn-total-invalid", "originSessionId": "synthetic-codex-session-edge", "attributionStatus": "invalid", "evidence": "total-mismatch"}], "quality": "invalid", "diagnostics": ["total_tokens_mismatch"]}
+    ],
+    "diagnostics": []
+  },
+  "manualCalculation": ["total-only 77 remains nativeTotal; input/output are null, not zero", "cache-write case: fresh 100 - 20 = 80; processed 100 + 30 = 130; cache write 7 is not added", "missing root identity is unsupported and unattributed", "10 cached vs 11 invalid; output 5 vs reasoning 6 invalid; input 10 + output 5 != total 16 invalid"]
+}

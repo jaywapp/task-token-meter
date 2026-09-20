@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "fixtureId": "codex-delta-snapshot-mismatch",
+  "inputFiles": ["codex/delta-snapshot-mismatch.jsonl"],
+  "provider": "codex",
+  "providerVersion": "0.153.4",
+  "recordShape": "codex-rollout-token-usage-record-v0.153.4-synthetic",
+  "synthetic": true,
+  "claimIds": ["C-CODEX-003", "C-CODEX-004"],
+  "capability": {"usageKinds": ["call-delta", "turn-snapshot", "session-snapshot"], "turnSnapshotAuthority": true, "rootScope": "main-only"},
+  "oracleMethod": "synthetic-manual-arithmetic-v1",
+  "expected": {
+    "turns": [{"turnKey": {"rootSessionId": "synthetic-codex-session-mismatch", "rootTurnId": "synthetic-codex-turn-mismatch"}, "nativeUsage": {"input_tokens": 85, "cached_input_tokens": 25, "output_tokens": 35, "reasoning_output_tokens": 6, "total_tokens": 120, "cache_write_input_tokens": 0}, "normalizedUsage": {"uncachedInput": 60, "cacheRead": 25, "cacheWrite": 0, "cacheWrite5m": null, "cacheWrite1h": null, "inputTotal": 85, "output": 35, "reasoning": 6, "processedTokens": 120, "nativeTotal": 120, "knownSubtotal": 120, "unknownObservationCount": 1, "apiCallCount": 2, "maxObservedInput": 70}, "membership": [{"executionId": "synthetic-codex-thread-mismatch/synthetic-codex-turn-mismatch", "originSessionId": "synthetic-codex-session-mismatch", "attributionStatus": "attributed", "evidence": "turn-snapshot-authority"}], "executionState": "unknown", "quality": "partial", "diagnostics": ["delta_snapshot_mismatch"]}],
+    "diagnostics": ["delta_snapshot_mismatch"]
+  },
+  "manualCalculation": ["call deltas total 100 + 0 = 100", "final authoritative turn snapshot total = 120", "snapshot wins once; fresh 85 - 25 = 60; processed 85 + 35 = 120"]
+}

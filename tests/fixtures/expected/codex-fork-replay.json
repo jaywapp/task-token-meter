@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "fixtureId": "codex-fork-replay",
+  "inputFiles": ["codex/fork-replay/parent.jsonl", "codex/fork-replay/fork-with-origin.jsonl", "codex/fork-replay/fork-without-origin.jsonl"],
+  "provider": "codex",
+  "providerVersion": "0.153.4",
+  "recordShape": "codex-rollout-fork-lineage-synthetic",
+  "synthetic": true,
+  "claimIds": ["C-CODEX-017", "C-CODEX-018"],
+  "capability": {"turnSnapshotAuthority": true, "rootSessionSource": "record-session-id", "rootScope": "main-only", "forkReplayIdentity": "origin-id"},
+  "oracleMethod": "synthetic-manual-arithmetic-v1",
+  "expected": {
+    "turns": [
+      {"turnKey": {"rootSessionId": "synthetic-codex-session-fork-parent", "rootTurnId": "synthetic-codex-turn-fork-parent"}, "nativeUsage": {"input_tokens": 20, "cached_input_tokens": 5, "output_tokens": 10, "reasoning_output_tokens": 2, "total_tokens": 30, "cache_write_input_tokens": 0}, "normalizedUsage": {"uncachedInput": 15, "cacheRead": 5, "cacheWrite": 0, "inputTotal": 20, "output": 10, "reasoning": 2, "processedTokens": 30, "nativeTotal": 30, "knownSubtotal": 30, "unknownObservationCount": 0}, "membership": [{"executionId": "synthetic-codex-origin-execution", "originSessionId": "synthetic-codex-session-fork-parent", "attributionStatus": "attributed", "evidence": "origin-execution-id"}], "quality": "observed", "diagnostics": []},
+      {"turnKey": {"rootSessionId": "synthetic-codex-session-fork-evidenced", "rootTurnId": "synthetic-codex-turn-fork-evidenced-new"}, "nativeUsage": {"input_tokens": 8, "cached_input_tokens": 2, "output_tokens": 2, "reasoning_output_tokens": 1, "total_tokens": 10, "cache_write_input_tokens": 0}, "normalizedUsage": {"uncachedInput": 6, "cacheRead": 2, "cacheWrite": 0, "inputTotal": 8, "output": 2, "reasoning": 1, "processedTokens": 10, "nativeTotal": 10, "knownSubtotal": 10, "unknownObservationCount": 0}, "membership": [{"executionId": "synthetic-codex-new-execution-evidenced", "originSessionId": "synthetic-codex-session-fork-evidenced", "attributionStatus": "attributed", "evidence": "new-origin-execution-id"}], "quality": "observed", "diagnostics": ["fork_replay_origin_excluded"]}
+    ],
+    "excludedExecutions": [{"executionId": "synthetic-codex-origin-execution", "forkSessionId": "synthetic-codex-session-fork-evidenced", "reason": "same-origin-execution-id"}],
+    "ambiguousObservations": [{"sessionId": "synthetic-codex-session-fork-ambiguous", "responseId": "synthetic-codex-replayed-response-ambiguous", "nativeUsage": {"input_tokens": 20, "cached_input_tokens": 5, "output_tokens": 10, "reasoning_output_tokens": 2, "total_tokens": 30, "cache_write_input_tokens": 0}, "normalizedUsage": null, "membership": [], "quality": "partial", "diagnostics": ["fork_replay_ambiguous"]}],
+    "diagnostics": ["fork_replay_ambiguous"]
+  },
+  "manualCalculation": ["parent origin execution contributes 30 once", "fork with the same origin_execution_id contributes 0 replay tokens and only new execution contributes 10", "fork without origin evidence is neither added nor deduplicated; its complete aggregate remains unknown"]
+}

@@ -1,17 +1,17 @@
 # Plan — 구현 작업 계획
 
-작성일: 2026-09-19 · 갱신일: 2026-09-20 · 상태: 사용자 결정 반영 완료, 제품 구현 미착수
+작성일: 2026-09-19 · 갱신일: 2026-09-20 · 상태: TASK-014 교차 리뷰 완료, release acceptance Fail (PERF-001)
 
 ## 계획의 기준
 
 [design.md](design.md), [architecture.md](architecture.md), [user-confirm.md](user-confirm.md)를 반영해 이 계획을 마지막으로 갱신했다. 아이디어 기준은 `148f7e7`, 사용자 결정 기준은 `2498359`다. UC-001~008 선택은 A, A, C, A, A, A, A, C이며 사용자 결정 차단은 모두 해소되었다.
 
-- TASK-002의 문서 동기화만 이번에 완료했다. TASK-001의 실측·계약 조사와 제품 코드는 아직 실행하지 않았다.
+- TASK-001~011, 013~016을 완료했다. TASK-012 비용 추정은 사용자 결정대로 Deferred다.
 - 기술적 미확인 사항은 사용자 선택과 구분한다. Parser 지원 여부는 TASK-001의 근거와 TASK-004의 fixture로 검증한다.
 - C#/.NET Windows CLI, global/workspace SQLite, child 포함, 다중 세션 대화형 선택이 MVP다. 비용 추정 TASK-012는 Deferred다.
 - TASK-015(저장 방식 전환)와 TASK-016(터미널 세션 선택)을 추가하여 두 C 선택의 구현 범위를 분리했다.
 - Blocked By에는 미해결 기술 선행 관계를 적고, 확정된 UC는 차단으로 남기지 않는다.
-- 실제 개인 로그는 승인된 범위에서 구조/수치만 조사하고 합성 fixture를 기본으로 한다. 이번 스킬은 구현 준비 문서까지 수행한다.
+- 실제 개인 로그는 승인된 read-only 구조/수치 조사로만 다뤘고 합성 fixture를 제품 검증의 기본으로 사용했다. 실제 Provider 설정 Hook 설치는 수행하지 않았다.
 
 ## UI 필요 여부와 시안 생략
 
@@ -23,7 +23,7 @@ MVP의 사용자 인터페이스는 터미널 CLI다. 다중 세션은 번호 �
 
 사용자 요청에 따라 모델 배정은 `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna`로 구성한다. 기존 상위 모델 배정 작업인 TASK-001/002/007/014는 `gpt-5.6-sol`로 변경하며 추론 수준은 High를 유지한다. 조사·귀속·리뷰 작업은 명시된 근거와 fixture 검증을 충족해야 한다. 호출 가능한 Claude 모델은 이 세션에 노출되지 않았으므로 실행을 약속하지 않는다.
 
-여기의 모델 지정은 후속 실행을 위한 계획이며, 이번 준비 작업에 해당 모델의 서브에이전트를 실행했다는 뜻이 아니다. 추론 수준은 이 스킬의 `Low / Medium / High / Extra High` 표기를 쓴다. 2026-09-20 모델 배정 변경은 이후 실행·재실행에 적용한다. 이미 Completed인 TASK-002의 실제 실행 모델을 소급해서 변경했다는 뜻이 아니다.
+여기의 모델 지정은 실행 계획 당시 배정 기록이다. 실제 완료 여부와 검증 결과는 각 TASK의 Status와 최종 구현·검증 기록을 기준으로 한다. 추론 수준은 계획 문서의 `Low / Medium / High / Extra High` 표기를 유지한다.
 
 ## 실행 순서와 병렬화
 
@@ -56,6 +56,9 @@ flowchart TD
 003 이후 005/006/008은 Core 계약이 고정됐을 때 서로 다른 파일을 맡겨 병렬화할 수 있다. 016은 Core 계약 고정 후 Adapter 작업과 병렬화할 수 있다. 012는 후속 범위이므로 MVP 병렬 작업에 배정하지 않는다. Core 계약·schema·동일 브랜치의 Git 상태를 동시에 수정하지 않는다. 실제 위임 여부는 당시 도구·모델 가용성과 토큰 비용을 보고 결정한다.
 
 ## TASK-001 — Provider 계약과 관측 한계 조사
+
+### Status
+Completed — 2026-09-20. Provider 버전별 계약, 관측 한계, source matrix와 개인정보 제한을 조사했다.
 
 ### Goal
 아이디어의 실측 보고를 구현 가능한 버전별 계약과 반례 목록으로 바꾼다.
@@ -109,6 +112,9 @@ High
 
 ## TASK-003 — 빌드 가능한 CLI 프로젝트와 계약 타입
 
+### Status
+Completed — 2026-09-20. net10.0 solution, 계약 타입, locked restore와 CI 기반을 구현했다.
+
 ### Goal
 선택된 runtime에서 Core/Adapter/Storage/CLI를 독립 검증할 기반을 만든다.
 ### Dependencies
@@ -131,6 +137,9 @@ Medium
 고정된 계약의 프로젝트·타입 생성 중심이라 저비용 모델로 충분하다.
 
 ## TASK-004 — 합성 Golden fixture와 oracle 정의
+
+### Status
+Completed — 2026-09-20. Claude/Codex 합성 golden fixture와 독립 oracle을 작성했다.
 
 ### Goal
 실제 개인정보 없이 정답이 계산된 Provider별·공통 반례 묶음을 만든다.
@@ -155,6 +164,9 @@ High
 
 ## TASK-005 — Claude 로그 Adapter
 
+### Status
+Completed — 2026-09-20. Claude adapter와 alias/snapshot/dedupe/부분 입력 처리를 구현했다.
+
 ### Goal
 Claude 지원 버전의 관측을 중복 없는 호출과 턴 후보로 변환한다.
 ### Dependencies
@@ -177,6 +189,9 @@ High
 계약은 고정됐지만 identity와 streaming의 예외 구현에 높은 주의가 필요하다.
 
 ## TASK-006 — Codex usage Adapter
+
+### Status
+Completed — 2026-09-20. Codex adapter와 delta/snapshot/lineage 처리를 구현했다.
 
 ### Goal
 검증된 Codex usage authority와 root 관계를 보존한다.
@@ -201,6 +216,9 @@ High
 
 ## TASK-007 — 공통 identity, root 귀속, 상태 projection
 
+### Status
+Completed — 2026-09-20. 공통 identity, root 귀속, fork/replay와 상태 projection을 구현·교차 수정했다.
+
 ### Goal
 두 Adapter의 실행을 root Turn에 정확히 한 번 귀속한다.
 ### Dependencies
@@ -223,6 +241,9 @@ High
 선행 Adapter 계약과 fixture를 바탕으로 Sol이 귀속 로직을 구현한다. High 추론을 유지하고 root/child 중복·미귀속·늦은 갱신의 인수 기준으로 정확성을 검증한다.
 
 ## TASK-008 — 정규화와 품질 지표
+
+### Status
+Completed — 2026-09-20. nullable usage 정규화, 품질과 scope 진단을 구현했다.
 
 ### Goal
 명시된 포함 관계로 안전하게 토큰 지표를 계산한다.
@@ -247,6 +268,9 @@ High
 
 ## TASK-009 — Ledger와 재동기화 내구성
 
+### Status
+Completed — 2026-09-20. SQLite ledger, revision/source/route conflict와 writer concurrency를 구현했다.
+
 ### Goal
 동시 수집과 원본 손실에도 기존 정상 결과를 보존한다.
 ### Dependencies
@@ -270,6 +294,9 @@ transaction과 crash 복구는 반복 코드보다 상태 전이 검증의 비�
 
 ## TASK-010 — CLI 조회와 사용성
 
+### Status
+Completed — 2026-09-20. current/last/turns/sync/rebuild, JSON/text, strict와 exit code를 구현했다.
+
 ### Goal
 사용자가 세션·측정 범위·품질을 혼동하지 않고 조회한다.
 ### Dependencies
@@ -292,6 +319,9 @@ Medium
 확정된 인터페이스와 정규화 결과를 연결하는 범위가 명확한 구현이다.
 
 ## TASK-011 — Provider별 비차단 Hook 설치와 복구
+
+### Status
+Completed — 2026-09-20. Provider별 Hook 설치/제거, neutral stdout, fail-open과 물리 경로 검증을 구현했다.
 
 ### Goal
 사용자가 명시적으로 활성화했을 때 자동 보관을 제공한다.
@@ -342,6 +372,9 @@ Medium
 
 ## TASK-013 — 전체 흐름·성능·배포 검증
 
+### Status
+Completed — 2026-09-20. 기능·내구성·패키징 검증을 실행했다. 전체 acceptance는 PERF-001(warm p95 1,648.19 ms > 1,000 ms) 때문에 Fail이다.
+
 ### Goal
 두 Provider의 지원 범위와 배포 가능한 품질을 증거로 확인한다.
 ### Dependencies
@@ -364,6 +397,9 @@ High
 관측 scope·환경·계측 비용을 종합하는 검증이며 단일 unit test로 대체할 수 없다.
 
 ## TASK-014 — 교차 리뷰와 구현 인수 문서
+
+### Status
+Completed — 2026-09-20. Critical 0, High 3건 모두 해결했다. Medium SCOPE-001/CONSISTENCY-001과 release blocker PERF-001은 open이며 전체 acceptance는 Fail이다.
 
 ### Goal
 정확성·개인정보·비차단 동작을 독립적으로 검토하고 다음 유지보수자가 재현할 수 있게 한다.
@@ -388,6 +424,9 @@ Sol의 별도 리뷰 세션에 High 추론으로 배정한다. 구현 결과의 
 
 ## TASK-015 — 저장 모드 전환과 복구
 
+### Status
+Completed — 2026-09-20. global↔workspace migration, journal crash recovery, manifest 재검증과 safe retry를 구현했다.
+
 ### Goal
 UC-003=C의 global/workspace 저장 간 전환을 데이터 손실·중복 없이 제공한다.
 ### Dependencies
@@ -411,6 +450,9 @@ High
 
 ## TASK-016 — 대화형 세션 선택과 비대화형 계약
 
+### Status
+Completed — 2026-09-20. 대화형 0/1/N 선택과 CI/pipe/JSON 비대화형 계약을 구현했다. Workspace 후보 제한은 SCOPE-001로 남았다.
+
 ### Goal
 UC-008=C에 맞게 터미널에서 세션을 고르고 자동 실행에서는 입력을 기다리지 않게 한다.
 ### Dependencies
@@ -432,23 +474,21 @@ Medium
 ### Reason
 확정된 CLI 흐름의 구현이며 대화형·비대화형 분기와 입출력 검증이 중심이다.
 
-## 준비 작업의 완료 점검
+## 최종 구현·검증 기록 — 2026-09-20
 
-| 항목 | 상태 |
-|---|---|
-| docs/ideas 전체 두 문서 분석 | 완료 |
-| design / architecture / user-confirm 작성 | 완료 |
-| 그래픽 UI 필요 여부 판단 | 불필요, CLI 예시 포함 |
-| plan을 마지막에 작성 | 완료 |
-| 모든 TASK에 Agent / Model / Reasoning Level / Reason | 명시 |
-| 사용자 선택과 Blocked By 갱신 | UC-001~008 반영, 사용자 차단 없음 |
-| 저장 전환·대화형 선택 작업 | TASK-015/016 추가 |
-| 비용 작업 | TASK-012 Deferred, MVP 의존에서 제외 |
-| 제품 구현·실제 Hook 설치 | 수행하지 않음 |
-| 실제 Provider 로그 정확성·성능 검증 | 구현 계획에 포함, 이번 준비에서 수행하지 않음 |
+| TASK | 최종 상태 | 핵심 결과 |
+|---|---|---|
+| TASK-001 | Completed | Provider 계약/source matrix와 관측 한계 기록 |
+| TASK-002 | Completed | 사용자 결정과 준비 문서 동기화 |
+| TASK-003~011 | Completed | solution, fixture, adapters, attribution, normalization, ledger, CLI, Hook 구현 |
+| TASK-012 | Deferred | 비용 추정은 MVP 이후 범위 |
+| TASK-013 | Completed | 134/134 테스트와 패키징 완료; acceptance Fail/PERF-001 |
+| TASK-014 | Completed | Critical 0; High 3/3 해결; Medium 2건 open |
+| TASK-015 | Completed | global↔workspace migration과 crash/race recovery |
+| TASK-016 | Completed | interactive/noninteractive selection 계약; SCOPE-001 open |
 
-사용자 결정 반영과 준비 문서 동기화는 완료했다. 제품 정확성 검증은 아직 수행하지 않았다. 다음 작업은 TASK-001의 Provider 계약 조사이며 이후 fixture·프로젝트·Adapter 구현으로 진행한다. TASK-002만 Completed이고 TASK-012는 Deferred, 나머지는 미착수다.
+최종 패키지는 win-x64 self-contained로 생성했고 native SQLite, clean runtime, wrapper, Windows PowerShell 5.1 smoke를 통과했다. 실제 개인 Provider 로그 전체 smoke와 실제 Provider 설정 Hook 설치는 Not Run이다.
 
-## 문서 검증 기록 — 2026-09-20
+전체 release acceptance는 **Fail**이다. `PERF-001`의 공식 warm p95 1,648.19 ms가 1,000 ms 기준을 넘는다. 자동 session discovery의 workspace 범위 `SCOPE-001`과 parse/fingerprint 시점 `CONSISTENCY-001`도 Medium으로 열려 있다. 상세 근거와 완료 조건은 [acceptance](../validation/acceptance.md), [review](../validation/review.md), [performance](../validation/performance.md)에 있다.
 
-필수 문서 4개, 내부 링크, 16개 TASK의 필수 필드·모델·추론 수준, 작업 의존 그래프, UC 선택 원문 보존을 점검해 통과했다. 의존 그래프에 순환이 없으며 Deferred 비용 작업을 MVP가 참조하지 않는다. `git diff --check`와 원본 ideas 무변경도 확인했다. 사용자 결정 커밋에서 변경된 파일은 docs/prepare/의 문서뿐이며 원본 ideas는 보존한다. 이 기록은 제품 빌드·실제 로그 측정·Hook 실행을 통과했다는 뜻이 아니다.
+User-confirm 원문과 ideas 문서는 TASK-014에서 수정하지 않았다.

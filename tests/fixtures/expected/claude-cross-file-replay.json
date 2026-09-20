@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "fixtureId": "claude-cross-file-replay",
+  "inputFiles": ["claude/cross-file-replay/source-a.jsonl", "claude/cross-file-replay/source-b.jsonl"],
+  "provider": "claude-code",
+  "providerVersion": "2.1.278",
+  "recordShape": "claude-transcript-assistant-usage-v2.1.278-synthetic",
+  "synthetic": true,
+  "claimIds": ["C-CLAUDE-005", "C-CLAUDE-006", "C-CLAUDE-007"],
+  "oracleMethod": "synthetic-manual-arithmetic-v1",
+  "expected": {
+    "turns": [{
+      "turnKey": {"rootSessionId": "synthetic-claude-session-replay", "rootTurnId": "synthetic-claude-prompt-replay"},
+      "nativeUsage": {"input_tokens": 3, "cache_creation_input_tokens": 0, "cache_read_input_tokens": 4, "output_tokens": 15, "cache_creation": {"ephemeral_5m_input_tokens": 0, "ephemeral_1h_input_tokens": 0}},
+      "normalizedUsage": {"uncachedInput": 3, "cacheRead": 4, "cacheWrite": 0, "cacheWrite5m": 0, "cacheWrite1h": 0, "inputTotal": 7, "output": 15, "reasoning": null, "processedTokens": 22, "nativeTotal": null, "knownSubtotal": 22, "unknownObservationCount": 0, "apiCallCount": 1, "maxObservedInput": 7},
+      "membership": [{"executionId": "synthetic-claude-request-replay", "originSessionId": "synthetic-claude-session-replay", "attributionStatus": "attributed", "evidence": "entry-uuid-then-logical-alias-dedupe"}],
+      "executionState": "unknown",
+      "quality": "observed",
+      "diagnostics": ["duplicate_entry_uuid_excluded", "logical_call_replay_collapsed"]
+    }],
+    "unattributed": [],
+    "diagnostics": []
+  },
+  "manualCalculation": ["shared entry UUID is removed first", "compatible logical snapshots select max output 15", "3 + 4 + 0 + 15 = 22"]
+}

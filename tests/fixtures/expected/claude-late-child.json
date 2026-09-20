@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "fixtureId": "claude-late-child",
+  "inputFiles": ["claude/late-child/revision-1-main.jsonl", "claude/late-child/revision-2-child.jsonl", "claude/late-child/hooks.json"],
+  "provider": "claude-code",
+  "providerVersion": "2.1.278",
+  "recordShape": "claude-transcript-task-notification-subagent-v2.1.278-synthetic",
+  "synthetic": true,
+  "claimIds": ["C-CLAUDE-011", "C-CLAUDE-012", "C-CLAUDE-013"],
+  "oracleMethod": "synthetic-manual-arithmetic-v1",
+  "expected": {
+    "rootTurnKey": {"rootSessionId": "synthetic-claude-session-late", "rootTurnId": "synthetic-claude-prompt-late"},
+    "revisions": [
+      {
+        "revision": 1,
+        "nativeUsage": {"input_tokens": 10, "cache_creation_input_tokens": 0, "cache_read_input_tokens": 0, "output_tokens": 10},
+        "normalizedUsage": {"uncachedInput": 10, "cacheRead": 0, "cacheWrite": 0, "cacheWrite5m": 0, "cacheWrite1h": 0, "inputTotal": 10, "output": 10, "reasoning": null, "processedTokens": 20, "nativeTotal": null, "knownSubtotal": 20, "unknownObservationCount": 1, "apiCallCount": 1, "maxObservedInput": 10},
+        "membership": [{"executionId": "synthetic-claude-request-late-main", "originSessionId": "synthetic-claude-session-late", "attributionStatus": "attributed", "evidence": "main-prompt-id"}],
+        "executionState": "completed",
+        "quality": "provisional",
+        "diagnostics": ["task_notification_identity_unknown", "child_source_pending"]
+      },
+      {
+        "revision": 2,
+        "nativeUsage": {"input_tokens": 13, "cache_creation_input_tokens": 0, "cache_read_input_tokens": 2, "output_tokens": 15},
+        "normalizedUsage": {"uncachedInput": 13, "cacheRead": 2, "cacheWrite": 0, "cacheWrite5m": 0, "cacheWrite1h": 0, "inputTotal": 15, "output": 15, "reasoning": null, "processedTokens": 30, "nativeTotal": null, "knownSubtotal": 30, "unknownObservationCount": 0, "apiCallCount": 2, "maxObservedInput": 10},
+        "membership": [{"executionId": "synthetic-claude-request-late-main", "originSessionId": "synthetic-claude-session-late", "attributionStatus": "attributed", "evidence": "main-prompt-id"}, {"executionId": "synthetic-claude-request-late-child", "originSessionId": "synthetic-claude-session-late-child", "attributionStatus": "attributed", "evidence": "child-user-prompt-id-and-subagent-stop"}],
+        "executionState": "completed",
+        "quality": "observed",
+        "diagnostics": ["task_notification_did_not_open_turn"]
+      }
+    ],
+    "diagnostics": []
+  },
+  "manualCalculation": ["revision-1 main: 10 + 0 + 0 + 10 = 20", "late child: 3 + 2 + 0 + 5 = 10", "revision-2 same root key: 20 + 10 = 30"]
+}

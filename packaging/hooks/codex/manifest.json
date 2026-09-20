@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "provider": "codex",
+  "supportedProviderVersion": "0.153.4",
+  "settingsFormat": "codex-hooks-json",
+  "settingsFile": "~/.codex/hooks.json",
+  "events": ["Stop", "SubagentStop", "Interrupt"],
+  "neutralStdout": {
+    "Stop": "{}",
+    "SubagentStop": "{}",
+    "Interrupt": "empty"
+  },
+  "managedMarker": "task-token-meter-v1",
+  "wrapper": "task-token-meter-hook.cmd"
+}

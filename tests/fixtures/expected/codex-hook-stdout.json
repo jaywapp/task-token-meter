@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "fixtureId": "codex-hook-stdout",
+  "inputFiles": ["codex/hook-stdout.json"],
+  "provider": "codex",
+  "providerVersion": "0.153.4",
+  "recordShape": "codex-hook-command-response-v0.153.4-synthetic",
+  "synthetic": true,
+  "claimIds": ["C-CODEX-014", "C-CODEX-015", "C-CODEX-016"],
+  "capability": {"hookNeutralResponseVersion": "codex-hooks-current-synthetic-contract"},
+  "oracleMethod": "synthetic-contract-table-v1",
+  "expected": {
+    "nativeUsage": null,
+    "normalizedUsage": null,
+    "membership": [],
+    "quality": "observed",
+    "cases": [{"caseId": "synthetic-codex-stop-neutral", "accepted": true, "neutral": true, "diagnostics": []}, {"caseId": "synthetic-codex-subagent-stop-neutral", "accepted": true, "neutral": true, "diagnostics": []}, {"caseId": "synthetic-codex-interrupt-neutral", "accepted": true, "neutral": true, "diagnostics": []}, {"caseId": "synthetic-codex-stop-plain-text", "accepted": false, "neutral": false, "diagnostics": ["hook_plain_text_invalid"]}, {"caseId": "synthetic-codex-stop-block", "accepted": false, "neutral": false, "diagnostics": ["hook_continuation_forbidden"]}, {"caseId": "synthetic-codex-stop-context", "accepted": false, "neutral": false, "diagnostics": ["hook_context_output_forbidden"]}],
+    "diagnostics": []
+  },
+  "manualCalculation": ["Stop and SubagentStop require exit 0 plus exactly {}", "Interrupt neutral form is exit 0 plus empty stdout", "plain text, block, and context-bearing responses are forbidden"]
+}

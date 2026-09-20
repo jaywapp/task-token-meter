@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "fixtureId": "claude-cache-ttl",
+  "inputFiles": ["claude/cache-ttl.jsonl"],
+  "provider": "claude-code",
+  "providerVersion": "2.1.278",
+  "recordShape": "claude-transcript-cache-ttl-v2.1.278-synthetic",
+  "synthetic": true,
+  "claimIds": ["C-CLAUDE-009", "C-CLAUDE-010"],
+  "oracleMethod": "synthetic-manual-arithmetic-v1",
+  "expected": {
+    "turns": [
+      {"turnKey": {"rootSessionId": "synthetic-claude-session-ttl", "rootTurnId": "synthetic-claude-prompt-ttl-valid"}, "nativeUsage": {"input_tokens": 4, "cache_creation_input_tokens": 30, "cache_read_input_tokens": 6, "output_tokens": 7, "cache_creation": {"ephemeral_5m_input_tokens": 10, "ephemeral_1h_input_tokens": 20}, "output_tokens_details": {"thinking_tokens": 3}}, "normalizedUsage": {"uncachedInput": 4, "cacheRead": 6, "cacheWrite": 30, "cacheWrite5m": 10, "cacheWrite1h": 20, "inputTotal": 40, "output": 7, "reasoning": null, "processedTokens": 47, "nativeTotal": null, "knownSubtotal": 47, "unknownObservationCount": 0, "apiCallCount": 1, "maxObservedInput": 40}, "membership": [{"executionId": "synthetic-claude-request-ttl-valid", "originSessionId": "synthetic-claude-session-ttl", "attributionStatus": "attributed", "evidence": "prompt-order"}], "executionState": "unknown", "quality": "observed", "diagnostics": ["reasoning_semantics_unknown"]},
+      {"turnKey": {"rootSessionId": "synthetic-claude-session-ttl", "rootTurnId": "synthetic-claude-prompt-ttl-invalid"}, "nativeUsage": {"input_tokens": 4, "cache_creation_input_tokens": 31, "cache_read_input_tokens": 6, "output_tokens": 7, "cache_creation": {"ephemeral_5m_input_tokens": 10, "ephemeral_1h_input_tokens": 20}, "output_tokens_details": {"thinking_tokens": 3}}, "normalizedUsage": {"uncachedInput": 4, "cacheRead": 6, "cacheWrite": null, "cacheWrite5m": 10, "cacheWrite1h": 20, "inputTotal": null, "output": 7, "reasoning": null, "processedTokens": null, "nativeTotal": null, "knownSubtotal": 17, "unknownObservationCount": 1, "apiCallCount": 1, "maxObservedInput": null}, "membership": [{"executionId": "synthetic-claude-request-ttl-invalid", "originSessionId": "synthetic-claude-session-ttl", "attributionStatus": "invalid", "evidence": "ttl-total-mismatch"}], "executionState": "unknown", "quality": "invalid", "diagnostics": ["cache_ttl_total_mismatch", "reasoning_semantics_unknown"]}
+    ],
+    "diagnostics": ["cache_ttl_total_mismatch"]
+  },
+  "manualCalculation": ["valid: 10 + 20 = cacheWrite 30; 4 + 6 + 30 + 7 = 47", "invalid: 10 + 20 = 30 != native cache creation 31", "known non-cache-write subtotal: 4 + 6 + 7 = 17", "thinking 3 remains native; normalized reasoning is null"]
+}

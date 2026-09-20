@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>TaskTokenMeter.Cli</RootNamespace>
+    <AssemblyName>task-token-meter</AssemblyName>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\TaskTokenMeter.Adapters\TaskTokenMeter.Adapters.csproj" />
+    <ProjectReference Include="..\TaskTokenMeter.Storage\TaskTokenMeter.Storage.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\..\packaging\hooks\**\*" Link="packaging\hooks\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>
