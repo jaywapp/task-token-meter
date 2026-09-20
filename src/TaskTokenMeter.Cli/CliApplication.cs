@@ -13,6 +13,7 @@ public interface ICliConsole : ISessionSelectionConsole
 {
     void WriteError(string value);
     bool IsColorEnabled { get; }
+    bool IsContinuousIntegration { get; }
 }
 
 public interface ICliRuntime : ISessionDiscovery
@@ -39,6 +40,7 @@ public sealed class SystemCliConsole : ICliConsole
     public bool IsInputRedirected => Console.IsInputRedirected;
     public bool IsOutputRedirected => Console.IsOutputRedirected;
     public bool IsColorEnabled => !Console.IsOutputRedirected && string.IsNullOrEmpty(Environment.GetEnvironmentVariable("NO_COLOR"));
+    public bool IsContinuousIntegration => string.Equals(Environment.GetEnvironmentVariable("CI"), "true", StringComparison.OrdinalIgnoreCase);
     public void Write(string value) => Console.Out.Write(value);
     public void WriteError(string value) => Console.Error.Write(value);
     public SessionSelectionInput ReadInput()
@@ -76,7 +78,7 @@ public static class CliApplication
 
         try
         {
-            var command = CliCommand.Parse(args);
+            var command = CliCommand.Parse(args, console.IsContinuousIntegration);
             if (command.Kind == CliCommandKind.Help) { RenderHelp(console); return Success; }
             if (command.Kind is CliCommandKind.StorageStatus or CliCommandKind.StorageMigrate)
                 return await RunStorageAsync(command, runtime, console, cancellationToken).ConfigureAwait(false);
@@ -247,7 +249,7 @@ public sealed record CliCommand(CliCommandKind Kind, ProviderKind? Provider, str
         catch (ArgumentException) { return Default(CliCommandKind.Current); }
     }
 
-    public static CliCommand Parse(string[] args)
+    public static CliCommand Parse(string[] args, bool isContinuousIntegration = false)
     {
         if (args.Length == 0 || args[0] is "--help" or "-h" or "help") return Default(CliCommandKind.Help);
         var index = 0;
@@ -269,7 +271,7 @@ public sealed record CliCommand(CliCommandKind Kind, ProviderKind? Provider, str
                 default: throw new ArgumentException("Unknown option: " + option);
             }
         }
-        return new(kind, provider, session, FindWorkspace(workspace), json, strict, dryRun, destination, json ? InteractionMode.Json : nonInteractive ? InteractionMode.NonInteractive : InteractionMode.Interactive, string.Equals(Environment.GetEnvironmentVariable("CI"), "true", StringComparison.OrdinalIgnoreCase));
+        return new(kind, provider, session, FindWorkspace(workspace), json, strict, dryRun, destination, json ? InteractionMode.Json : nonInteractive ? InteractionMode.NonInteractive : InteractionMode.Interactive, isContinuousIntegration);
     }
     private static CliCommandKind ParseStorage(string[] args, ref int index) { if (index >= args.Length) throw new ArgumentException("Storage action required."); return args[index++] switch { "status" => CliCommandKind.StorageStatus, "migrate" => CliCommandKind.StorageMigrate, _ => throw new ArgumentException("Unknown storage action.") }; }
     private static CliCommand Default(CliCommandKind kind) => new(kind, null, null, FindWorkspace(null), false, false, false, null, InteractionMode.Interactive, false);

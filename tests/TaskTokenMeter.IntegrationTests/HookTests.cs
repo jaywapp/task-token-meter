@@ -473,6 +473,7 @@ public sealed class HookTests
         public bool IsInputRedirected => true;
         public bool IsOutputRedirected => true;
         public bool IsColorEnabled => false;
+        public bool IsContinuousIntegration => false;
         public string StandardOutput { get; private set; } = string.Empty;
         public string StandardError { get; private set; } = string.Empty;
         public void Write(string value) => StandardOutput += value;

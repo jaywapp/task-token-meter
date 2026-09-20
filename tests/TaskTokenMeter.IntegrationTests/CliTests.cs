@@ -164,6 +164,7 @@ public sealed class CliTests
         public bool IsInputRedirected { get; init; }
         public bool IsOutputRedirected { get; init; }
         public bool IsColorEnabled => false;
+        public bool IsContinuousIntegration => false;
         public int ReadCount { get; private set; }
         public string StandardOutput { get; private set; } = string.Empty;
         public string StandardError { get; private set; } = string.Empty;
