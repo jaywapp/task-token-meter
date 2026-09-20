@@ -1,12 +1,12 @@
 # Design — Task Token Meter 기획
 
-작성일: 2026-09-19 · 상태: 구현 준비안, 사용자 결정 대기
+작성일: 2026-09-19 · 갱신일: 2026-09-20 · 상태: 사용자 결정 반영 완료, 기술 검증 후 구현 착수
 
 ## Overview
 
 Claude Code와 Codex의 로컬 사용 기록에서 사용자 프롬프트 한 번에 해당하는 Turn의 토큰 사용량을 계산하는 CLI 도구다. 계산에 LLM을 호출하지 않고 Provider가 기록한 usage를 사용한다. 첫 제품의 핵심은 Turn Meter이며, 여러 Turn을 의미적으로 묶는 Task Meter는 후속 단계다.
 
-이 문서 묶음은 제품 구현물이 아니다. `architecture.md`는 추천안을 구체화한 조건부 설계이고, `user-confirm.md`의 Pending 항목은 승인된 결정이 아니다. 구현 순서는 `plan.md`를 따른다.
+이 문서 묶음은 제품 구현물이 아니다. 사용자 결정 커밋 `2498359`의 UC-001~008을 반영했다. 선택은 순서대로 A, A, C, A, A, A, A, C이며 미결정 사용자 항목은 없다. Provider 로그 의미와 호환성은 별도 기술 검증 대상이다. 구현 순서는 `plan.md`를 따른다.
 
 ### 분석한 원문 전체
 
@@ -24,12 +24,12 @@ Claude Code와 Codex의 로컬 사용 기록에서 사용자 프롬프트 한 �
 | 실행 주체 | 외부 CLI, LLM 계산 금지 | 동의 | 유지 |
 | Provider | Claude Code + Codex | 동의 | 둘 다 MVP 통과 조건 |
 | 측정값 | 실제 usage, native 보존 | 동의, 정규화 함정 지적 | 유지, 정규화 계약 구체화 |
-| 경계/수집 | Hook 시작·종료로 자동 측정 | 로그 ID 중심, Hook은 재집계 트리거 | UC-001 Pending |
-| 저장 위치 | workspace 로컬 우선 검토 | 사용자 전역 추천 | UC-003 Pending |
-| 저장 형식 | JSONL 예시, 스키마 미확정 | SQLite 또는 세션별 파일 | UC-004 Pending |
-| 서브에이전트 | 범위 미명시 | 포함 필요 | UC-005 Pending |
-| 비용 | Later | MVP로 앞당기기 | UC-006 Pending, 승인 전 MVP 확정 아님 |
-| 구성 메타데이터 | 장기 비교 목적 | MVP부터 수집 | UC-007 Pending |
+| 경계/수집 | Hook 시작·종료로 자동 측정 | 로그 ID 중심, Hook은 재집계 트리거 | UC-001=A: 로그 ID 중심 + 비차단 Hook |
+| 저장 위치 | workspace 로컬 우선 검토 | 사용자 전역 추천 | UC-003=C: 전역·workspace-local 모두 지원 |
+| 저장 형식 | JSONL 예시, 스키마 미확정 | SQLite 또는 세션별 파일 | UC-004=A: SQLite |
+| 서브에이전트 | 범위 미명시 | 포함 필요 | UC-005=A: 귀속 가능한 child 포함 |
+| 비용 | Later | MVP로 앞당기기 | UC-006=A: 비용 추정 Later 유지 |
+| 구성 메타데이터 | 장기 비교 목적 | MVP부터 수집 | UC-007=A: 최소 metadata + 추가 정보 opt-in |
 | Task | Later, 수동 경계 후보 | 브랜치 기본 그룹 제안 | Deferred, MVP에 넣지 않음 |
 
 ## Problem
@@ -52,11 +52,11 @@ Claude Code와 Codex의 로컬 사용 기록에서 사용자 프롬프트 한 �
 - 원격/클라우드 로그 수집, 상시 서버, 외부 텔레메트리 전송.
 - 준비 단계에서 제품 코드, Hook 설치, 실제 사용자 로그 수집 수행.
 
-비용 환산의 MVP 승격은 UC-006에서 명시적으로 선택한 경우에만 범위에 들어온다.
+UC-006=A에 따라 비용 환산은 MVP에서 제외한다.
 
 ## Target Users
 
-장시간 세션을 사용하는 개인 개발자와 Harness 실험 사용자다. 우선 환경은 Windows + PowerShell 5.1이며, 정식 지원 OS·배포 방식은 UC-002에서 정한다. 서브모듈 허브, 여러 worktree, 동일 workspace의 동시 세션을 고려한다.
+장시간 세션을 사용하는 개인 개발자와 Harness 실험 사용자다. UC-002=A에 따라 C#/.NET self-contained CLI로 Windows를 우선 지원한다. 첫 빌드 대상은 win-x64이며 PowerShell 5.1에서 검증한다. 서브모듈 허브, 여러 worktree, 동일 workspace의 동시 세션을 고려한다.
 
 ## Core Concept
 
@@ -64,9 +64,9 @@ Claude Code와 Codex의 로컬 사용 기록에서 사용자 프롬프트 한 �
 - **Turn:** 사용자 프롬프트 1회에서 비롯된 실행. 토큰 집계용 root와 실제 실행한 child Turn을 구분한다.
 - **Task:** 여러 Turn을 사용자의 목적에 따라 묶는 후속 계층. Turn을 Task로 표기하지 않는다.
 - **관측 범위:** 선택한 source에서 실제 usage가 기록된 호출. 로그에 없는 부가 호출은 포함을 보장할 수 없다.
-- **Ledger:** 관측 결과와 출처를 보존하는 저장소. 추천안에서는 로그가 남아 있는 기간에 재구축 가능한 파생값이며, 원본 삭제 후에는 보관된 스냅샷이다.
+- **Ledger:** 관측 결과와 출처를 보존하는 저장소. 로그가 남아 있는 기간에 재구축 가능한 파생값이며, 원본 삭제 후에는 보관된 스냅샷이다.
 
-Processsed 같은 범용 합계로 비용 효율을 주장하지 않는다. 기본 화면은 토큰 종류별 내역을 우선하고, `processedTokens`는 포함 관계가 검증된 경우에만 보조 지표로 제공한다.
+Processed 같은 범용 합계로 비용 효율을 주장하지 않는다. 기본 화면은 토큰 종류별 내역을 우선하고, `processedTokens`는 포함 관계가 검증된 경우에만 보조 지표로 제공한다.
 
 ## User Scenarios
 
@@ -75,10 +75,12 @@ Processsed 같은 범용 합계로 비용 효율을 주장하지 않는다. 기�
 | S-01 | 한 세션에서 프롬프트 두 개 완료 | 두 Turn을 독립 조회, 세션 누적을 두 번째 Turn으로 오인하지 않음 |
 | S-02 | 진행 중 사용량 확인 | 현재까지 관측값과 `running`/`provisional` 표시 |
 | S-03 | 서브에이전트가 부모 Stop 이후 완료 | 재조회/재동기화 시 같은 root Turn 수정, 새 Turn으로 이중 생성하지 않음 |
-| S-04 | Hook 미설치 또는 누락 | UC-001 추천안에서는 로그 기반 소급 조회 가능 |
-| S-05 | 동일 workspace에 세션 두 개 | 자동으로 아무 세션도 고르지 않고 후보 ID 제시 |
+| S-04 | Hook 미설치 또는 누락 | 로그 기반 소급 조회 가능 |
+| S-05 | 동일 workspace에 세션 두 개 | 대화형 환경에서는 번호로 선택, 비대화형 환경에서는 명시적 선택자 요구 |
 | S-06 | 중단·손상·알 수 없는 스키마 | 오류 원인과 부분 관측을 구별, 없는 usage를 0으로 표시하지 않음 |
 | S-07 | 원본 로그 정리 이후 | 저장된 시점과 source 누락을 표시, 기존 보관값 유지 |
+| S-08 | 저장 방식을 전역에서 workspace-local로 전환 | preview 후 명시적 migration, 원래 수치 유지·중복 없음 |
+| S-09 | `--json` 또는 파이프에서 조회 | 선택자를 검증하고 즉시 JSON 결과/오류 반환, 입력 대기 없음 |
 
 ## User Flow
 
@@ -90,10 +92,12 @@ flowchart TD
     D --> E[Turn 귀속·중복 제거·정규화]
     E --> F[관측 상태와 usage 출력]
     E --> G[선택된 저장 정책에 따라 Ledger 갱신]
-    D --> H[세션 모호 또는 미지원: 진단과 다음 명령]
+    D --> H[다중 세션: 대화형 번호 선택]
+    H --> E
+    D --> I[비대화형 선택자 누락 또는 미지원: 진단]
 ```
 
-위 흐름은 UC-001의 로그 중심 추천안이다. Hook 중심안을 선택하면 경계 저장 및 복구 흐름을 별도로 다시 설계한다.
+위 흐름은 UC-001=A를 반영한다. 세션이 여러 개이면 터미널에서 선택한 뒤 계속하며, 비대화형 실행은 선택자를 요구한다.
 
 ## Features
 
@@ -101,20 +105,21 @@ flowchart TD
 
 두 Provider Adapter, 프롬프트별 측정, native/normalized usage, Claude 중복 제거, Ledger, 현재/직전 Turn CLI, 비차단 Hook이다.
 
-### 사용자 승인에 따라 추가 또는 변경될 항목
+### 사용자 결정으로 확정된 MVP 항목
 
 - 조회 시 재집계 + Hook을 통한 비동기 보관: UC-001.
 - 서브에이전트 포함 및 귀속 실패 표시: UC-005.
-- 구성 해시·실험 라벨 보존: UC-007.
-- 단가표 비용 추정: UC-006에서 MVP 선택 시만.
+- 최소 metadata 기본 수집, 구성 해시·실험 라벨은 opt-in: UC-007=A.
+- 전역·workspace-local SQLite와 명시적 저장소 전환: UC-003=C, UC-004=A.
+- 여러 세션의 대화형 선택, Hook/JSON/파이프의 명시적 선택자: UC-008=C.
 
 ### 후속 범위
 
-`task start/end`, 브랜치 기반 그룹 후보, `history`, `stats`, Harness 비교, Dashboard, 조회용 Skill, OTel 보조 수집기. 개발 중 편의상 MVP에 끼워 넣지 않는다.
+`task start/end`, 브랜치 기반 그룹 후보, `history`, `stats`, 비용 추정, Harness 비교, Dashboard, 조회용 Skill, OTel 보조 수집기. 개발 중 편의상 MVP에 끼워 넣지 않는다.
 
 ## Functional Requirements
 
-아래 명령은 제품 계약 제안이며 아직 실행 가능한 명령이 아니다.
+아래는 결정된 범위에 따른 구현 계약이다. 아직 실행 가능한 제품 명령은 아니다.
 
 | ID | 요구사항 | 인수 조건 |
 |---|---|---|
@@ -122,7 +127,7 @@ flowchart TD
 | FR-02 | `token-meter last` | 가장 최근 terminal Turn 반환; terminal 여부가 불명확하면 최신 관측 Turn이라는 경고와 provisional 상태 반환 |
 | FR-03 | `token-meter turns --session <id>` | 시간순 Turn 목록과 root/child 관계 조회; 날짜별 통계는 제외 |
 | FR-04 | 공통 선택자 | `--provider`, `--session`, `--workspace` 제공; workspace 기본값은 cwd의 가장 가까운 Git root 또는 cwd |
-| FR-05 | 자동 선택 | 명시 ID > 검증된 Hook context > workspace의 단일 후보; 여러 후보면 선택 요청 오류 |
+| FR-05 | 세션 선택 | 대화형 조회: 명시 ID > 단일 후보 > 다중 후보 번호 선택. Hook은 검증된 context, JSON/CI/리디렉션은 명시적 Provider·session 선택자 필수 |
 | FR-06 | 실제 usage | 알 수 없는 필드·결손은 native와 진단에 남기며 추정값을 실제 usage로 표시하지 않음 |
 | FR-07 | 중복 제거 | 반복 레코드/재개 파일/턴 누적 스냅샷을 합산하지 않음 |
 | FR-08 | 구조화 조회 | `--json`은 버전 있는 JSON만 stdout 출력; 진단은 stderr, 사람이 읽는 출력과 수치 동일 |
@@ -130,8 +135,10 @@ flowchart TD
 | FR-10 | Hook | 사용자 명령으로 설치/제거, 기존 설정 보존, 무한 재호출·차단·LLM context 주입 없음 |
 | FR-11 | 품질 표시 | execution 상태와 measurement 품질을 분리, `unknown`과 실제 0 구별 |
 | FR-12 | 계측 범위 | main/child 포함 정책·누락 파일·미귀속 호출 수 표시; root와 child 중복 합산 방지 |
+| FR-13 | 저장 모드 | global/workspace SQLite 모두 지원. workspace당 활성 저장소 하나, 명시적 migration·중복 탐지·Git 제외 지원 |
+| FR-14 | 대화형 CLI | 다중 후보 번호 선택·재입력·취소, 확정 전 세션 재확인. 비대화형 실행은 prompt 없이 선택자 검증 |
 
-조회는 UC-001 추천안에서 기본적으로 원본을 읽어 최신 스냅샷을 계산한다. 저장은 `sync`/Hook에서 수행한다. 원본 부재 시 보관값을 반환하되 관측 시점을 명시한다. 설치 편의 alias `tm`는 실행 파일 충돌을 확인하기 전 배포 계약에 넣지 않는다.
+조회는 기본적으로 원본을 읽어 최신 스냅샷을 계산한다. 저장은 `sync`/Hook에서 수행한다. 원본 부재 시 보관값을 반환하되 관측 시점을 명시한다. 설치 편의 alias `tm`는 실행 파일 충돌을 확인하기 전 배포 계약에 넣지 않는다.
 
 ### CLI 출력 예시
 
@@ -168,15 +175,37 @@ Warning       1 child source is unavailable; root total is incomplete.
 
 ```text
 > token-meter last
-Multiple sessions match this workspace. Select one:
-  claude-code  demo-session-a
-  codex        demo-session-b
-Next: token-meter last --provider codex --session demo-session-b
+Multiple sessions match this workspace:
+  1. claude-code  demo-session-a  completed
+  2. codex        demo-session-b  running
+Select a session [1-2, q to cancel]: 2
+Selected: codex / demo-session-b
+Last terminal turn: demo-turn-02
 ```
+
+### 비대화형 조회와 저장 방식 예시
+
+```text
+> token-meter last --json
+{"schemaVersion":1,"error":{"code":"selector_required","required":["provider","session"]}}
+> token-meter last --json --provider codex --session demo-session-b
+```
+
+위 첫 명령은 종료 코드 4이며 stdin을 기다리지 않는다. `--json`에서는 터미널 연결 여부와 관계없이 선택 UI를 띄우지 않는다.
+
+```text
+> token-meter storage status --workspace D:/workspace/demo
+Mode: global
+> token-meter storage migrate --workspace D:/workspace/demo --to workspace --dry-run
+Plan: copy workspace records, validate identities, switch active route
+> token-meter storage migrate --workspace D:/workspace/demo --to workspace
+```
+
+`global`의 기본 디렉터리는 `%LOCALAPPDATA%/TaskTokenMeter/`, `workspace`는 `<workspace>/.token-meter/`다. 기본 모드는 global이며 저장된 workspace별 선택으로 바꿀 수 있다. 두 곳에 동시에 쓰거나 자동으로 합치지 않는다. 설정·권한 실패 시 다른 저장소로 몰래 fallback하지 않는다. 전환 규칙은 architecture의 Configuration에 정의한다.
 
 ## Non-Functional Requirements
 
-以下 수치는 원문 실측의 재현 주장이 아니라 구현 단계에서 검증할 잠정 성능 예산이다.
+아래 수치는 원문 실측의 재현 주장이 아니라 구현 단계에서 검증할 잠정 성능 예산이다.
 
 - 정확성: 합성 fixture의 모든 필드와 귀속 결과가 기대값과 정확히 일치한다.
 - 멱등성: 같은 source를 10회 처리해도 usage·논리 레코드 수가 동일하다.
@@ -207,9 +236,10 @@ Next: token-meter last --provider codex --session demo-session-b
 
 ## Success Criteria
 
-- FR-01~12가 확정된 범위에서 통과하고 두 Provider가 모두 동작한다.
+- FR-01~14가 통과하고 두 Provider가 모두 동작한다.
 - 중복·부분 스트리밍·child 지연·중단·재개·모델 변경을 포함하는 fixture가 통과한다.
 - 동일 scope의 참조 집계와 차이를 필드별로 설명한다. 설명 없는 차이는 정확성 통과로 처리하지 않는다.
 - Hook 누락·실패 상황에서도 Provider 작업이 계속되며 명시적 재동기화로 복구한다.
 - 사용자는 실제 0, 관측 불가, 아직 변경 가능 상태를 CLI만으로 구분한다.
-- Pending 결정은 영향을 받는 구현 작업의 시작 전에 기록되고 관련 문서가 갱신된다.
+- UC-001~008의 확정 선택과 구현 범위가 일치한다. Provider 기술 계약은 fixture로 검증한다.
+- 두 저장 방식의 전환·재시도에서도 토큰이 중복되지 않고, 대화형 선택이 비대화형 입력을 기다리게 하지 않는다.
