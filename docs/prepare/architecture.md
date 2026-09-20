@@ -1,10 +1,10 @@
 # Architecture — 기술 설계
 
-작성일: 2026-09-19 · 상태: 조건부 추천안
+작성일: 2026-09-19 · 갱신일: 2026-09-20 · 상태: 사용자 결정 반영 완료, Provider 계약 검증 대기
 
 ## Architecture Overview
 
-이 문서는 UC-001의 로그 중심 수집, UC-002의 C#/.NET CLI, UC-003의 전역 로컬 저장, UC-004의 SQLite, UC-005의 child 포함을 선택했을 때의 설계다. 선택을 확정한 문서가 아니며 다른 옵션을 고르면 관련 절과 `plan.md`를 먼저 변경한다.
+사용자 결정 커밋 `2498359`를 기준으로 로그 중심 수집, C#/.NET Windows CLI, 전역·workspace-local 저장 모두 지원, SQLite, 귀속 가능한 child 포함, 비용 추정 Later, 최소 metadata와 opt-in 확장, 다중 세션 대화형 선택을 반영했다. 사용자 결정 게이트는 해소되었다. Provider 내부 로그의 identity·usage 의미는 TASK-001/004에서 검증해야 하며 제품 지원을 미리 확정하지 않는다.
 
 ```mermaid
 flowchart LR
@@ -17,7 +17,8 @@ flowchart LR
     I --> N[Normalize + validate]
     N --> R[Turn projection]
     R --> O[Text / JSON renderer]
-    R --> S[(SQLite Ledger)]
+    R --> W[Workspace 활성 저장소 선택]
+    W --> S[(Global 또는 Workspace SQLite)]
     S --> O
     N --> E[진단 코드·출처·측정 품질]
 ```
@@ -26,7 +27,7 @@ flowchart LR
 
 ## Technology Stack
 
-| 후보/추천 | 이유 | 조건 |
+| 선택 / 구현 후보 | 이유 | 검증 조건 |
 |---|---|---|
 | C# + 지원 중인 .NET LTS | Windows CLI 배포, 타입 있는 데이터 모델, SQLite 연동 | UC-002, 구현 시 지원 SDK 버전과 패키지 버전 고정 |
 | System.Text.Json | 스트리밍 JSONL 읽기, 제품 runtime 내장 | 한 행 크기·정수 overflow 제한 필요 |
@@ -34,13 +35,15 @@ flowchart LR
 | xUnit 등 단일 테스트 러너 | golden fixture와 프로세스 통합 검증 | 구현 시작 시 유지 중인 버전 선택 |
 | Python 표준 라이브러리 | 짧은 조사용 스크립트 후보 | 제품 runtime 추가 의존으로 만들지 않음 |
 
-단일 파일 배포는 OS/architecture별 산출물이 필요하므로 하나의 exe로 모든 OS를 지원한다고 약속하지 않는다. Self-contained 여부와 native SQLite 파일 배치/추출을 패키징 테스트로 검증한다. [Microsoft 단일 파일 배포 문서](https://learn.microsoft.com/en-us/dotnet/core/deploying/single-file/overview)
+단일 파일 배포는 OS/architecture별 산출물이 필요하므로 하나의 exe로 모든 OS를 지원한다고 약속하지 않는다. Self-contained win-x64 산출물과 native SQLite 파일 배치/추출을 패키징 테스트로 검증한다. [Microsoft 단일 파일 배포 문서](https://learn.microsoft.com/en-us/dotnet/core/deploying/single-file/overview)
 
 ## System Components / Responsibilities
 
 | 구성 요소 | 책임 | 금지 사항 |
 |---|---|---|
 | CLI | 명령 검증, 선택자, 출력·종료 코드 | 내부 집계 규칙 중복 구현 |
+| SessionSelector | 터미널 후보 선택·취소·재검증 | JSON/Hook/CI/파이프에서 입력 대기 |
+| StorageRouter / Migrator | workspace별 활성 저장소·migration·중복 탐지 | 두 저장소 동시 write 또는 자동 fallback |
 | Discovery | 허용된 source root에서 session/workspace 탐색 | 사용자 홈 전체 파일 내용 스캔 |
 | ClaudeAdapter / CodexAdapter | 지원 형식 판별, native usage와 identity 추출 | 누락 필드 자동 0 채우기 |
 | IdentityResolver | 재개/fork 중복·revision·실행 주체 구분 | 파일 경로만으로 동일 호출 판단 |
@@ -53,14 +56,14 @@ flowchart LR
 
 ## Data Flow
 
-1. Provider·session·workspace를 확정한다. 모호한 세션은 CLI 오류로 반환한다.
+1. Provider·session·workspace를 확정한다. 다중 후보이면 대화형 조회에서 번호 선택, 비대화형에서는 명시적 선택자를 검증한다. root workspace의 활성 저장소와 route generation도 캡처한다.
 2. 해당 session과 명시적으로 연결된 child source 목록, 파일 identity·크기·mtime을 캡처한다.
 3. 스냅샷 크기까지만 읽는다. 마지막 미완성 행은 다음 scan으로 미루고 source 변경 여부를 다시 확인한다.
 4. record UUID 중복을 제거하고 호출 identity별 revision을 고른다.
 5. root 귀속을 해석하고 native usage를 정규화한다. 모순은 격리하고 정상 레코드는 유지한다.
 6. root Turn마다 main과 고유 child 실행을 한 번씩 집계한다.
 7. source completeness와 독립된 reference 유무로 measurement status를 계산한다.
-8. 조회는 결과를 반환한다. 동기화는 짧은 transaction에서 검증된 snapshot을 저장한다.
+8. 조회는 결과를 반환한다. 동기화는 root workspace의 활성 저장소 한 곳에만 기록하며, workspace lock 아래 route generation을 재확인한 짧은 transaction을 사용한다.
 
 조회 순서와 저장 순서는 독립이다. 늦게 시작한 worker가 먼저 끝난 뒤 오래된 worker가 덮어쓰는 것을 막기 위해 source generation과 기존 revision을 비교한다. 서로 비교할 수 없는 snapshot은 재읽고 재집계한다.
 
@@ -95,7 +98,9 @@ packaging/
 
 | 엔터티 | 키 / 주요 필드 |
 |---|---|
-| Workspace | 로컬 `workspaceId`, canonical worktree path, 선택적 `repositoryGroupId` |
+| Workspace | 저장 모드와 독립된 로컬 `workspaceId`, canonical worktree path, 선택적 `repositoryGroupId` |
+| StorageRoute | workspaceId, mode, canonical data root, routeGeneration, activeStoreId |
+| Migration | migrationId, workspaceId, source/destination storeId, phase, manifestHash, expectedRouteGeneration, predecessorReceipt |
 | Session | `(provider, sessionId)`, workspaceId, parentSessionId, providerVersion |
 | Source | sourceId, sessionId, fileIdentity, content fingerprint, read extent, parserVersion, availability |
 | Observation | observationId, sourceId, recordUuid, originExecutionId, usageKind, nativeUsage, fieldSemanticsVersion |
@@ -163,6 +168,9 @@ Adapter는 usageKind를 `call_delta`, `turn_snapshot`, `session_snapshot`으로 
 
 ```text
 Discover(selector) -> SessionCandidates + Diagnostics
+Select(candidates, interactionMode) -> Session | Cancelled | SelectorRequired
+ResolveStore(workspaceId, overrides) -> ActiveStore + RouteGeneration
+Migrate(workspaceId, destination, expectedGeneration) -> Preview | Committed | Conflict
 Read(snapshot) -> Observations + SourceCompleteness
 Resolve(observations, lineage) -> Executions + Membership + Unattributed
 Normalize(execution, semanticsVersion) -> UsageProjection + Diagnostics
@@ -171,7 +179,7 @@ Commit(snapshot, expectedRevision) -> Committed | Retry | Rejected
 Render(snapshot, format) -> Text | VersionedJson
 ```
 
-CLI exit code 제안: 0 정상 관측(부분 결과는 payload에 품질 표시), 1 내부/IO 실패, 2 잘못된 CLI 인자, 3 관측 결과 없음, 4 모호한 세션, 5 미지원 schema. `--strict`는 partial/invalid 결과에 6을 반환한다. **Hook entrypoint는 이 CLI 코드와 별개로 실패를 흡수한다.**
+CLI exit code: 0 정상 관측(부분 결과는 payload에 품질 표시), 1 내부/IO 실패, 2 잘못된 CLI 인자, 3 관측 결과 없음, 4 선택자 누락/모호한 세션, 5 미지원 schema, 7 저장 경로 충돌 또는 migration 검증 실패, 130 대화형 취소. `--strict`는 partial/invalid 결과에 6을 반환한다. **Hook entrypoint는 이 CLI 코드와 별개로 실패를 흡수한다.**
 
 Hook 입력은 provider별 typed DTO로 받고 payload 크기 제한·path 검증을 적용한다. 이벤트와 버전별 neutral response 계약을 검증한다. 특히 Codex `Stop`/`SubagentStop`은 성공 stdout에 JSON을 요구하므로 일반 CLI 텍스트를 출력하면 안 된다. 필요한 neutral JSON을 사용하고 block/continue 제어 필드를 보내지 않는다. [Codex Hook 문서](https://learn.chatgpt.com/docs/hooks)
 
@@ -196,7 +204,7 @@ measurement quality: `observed | provisional | partial | invalid | unsupported`.
 
 재집계는 종전 Turn revision을 대체할 수 있다. 완전한 source manifest와 호환 parser로 재처리한 경우에만 잘못된 과거 projection을 교정한다. 파일 손실·truncate·권한 실패는 기존 정상값의 삭제 근거가 아니다. 원본이 없는 rebuild는 보관값을 그대로 두고 재검증 불가를 보고한다.
 
-### SQLite 추천안
+### SQLite 저장 정책
 
 WAL, foreign keys, unique keys, schema migration을 사용한다. 긴 파일 읽기는 transaction 밖에서 처리하고, 짧은 commit만 직렬화한다. busy timeout과 최대 재시도 시간을 제한하고 초과 시 다음 조회/sync에서 복구한다. WAL은 네트워크 filesystem에 사용하지 않고 로컬 디스크만 지원한다. [SQLite WAL 문서](https://www.sqlite.org/wal.html)
 
@@ -212,6 +220,8 @@ WAL, foreign keys, unique keys, schema migration을 사용한다. 긴 파일 읽
 | 정수 overflow / 음수 | invalid, 잘못된 수치 저장 금지 |
 | 미지원 스키마 | unsupported, 0건 성공으로 위장 금지 |
 | 저장소 잠금·디스크 부족 | 보관 실패 진단, 이전 ledger 유지 |
+| 저장 route 충돌·migration 중단 | code 7, journal 복구, 활성 source 유지·자동 fallback 금지 |
+| 대화형 취소 / 비대화형 선택자 누락 | 각각 code 130 / 4, DB write와 입력 대기 없음 |
 | Hook 파싱/실행 오류 | 비차단 neutral 종료, 추가 LLM 호출 없음 |
 | 완전 source가 뒤늦게 도착 | 기존 root revision 갱신, child 중복 삽입 방지 |
 
@@ -219,13 +229,54 @@ Hook의 최상위 catch만으로 executable missing/timeout 같은 launch 실패
 
 ## Logging
 
-JSON 진단에는 code, provider, 익명화/로컬 session reference, source index, line number, count, duration만 기록한다. 원본 행이나 예외의 민감한 문자열을 그대로 남기지 않는다. 회전 크기·보관 기간은 UC-007에서 확정한다. 일반 조회는 stderr, Hook은 로컬 진단 파일로 보내며 stdout은 Provider 계약 전용이다.
+JSON 진단에는 code, provider, 익명화/로컬 session reference, source index, line number, count, duration만 기록한다. 원본 행이나 예외의 민감한 문자열을 그대로 남기지 않는다. UC-007=A에 따라 기본 수집은 최소 metadata만 허용하며 hash/git HEAD/label은 opt-in이다. ledger는 명시적 purge 전까지 유지하고, 진단은 14일 또는 총 10 MB 중 먼저 도달한 제한으로 회전하는 구현 기본값을 둔다. 세부 수치는 사용자가 별도로 지정한 결정으로 기록하지 않으며 설정으로 변경 가능하다. 일반 조회는 stderr, Hook은 로컬 진단 파일로 보내며 stdout은 Provider 계약 전용이다.
 
 ## Configuration
 
-우선순위는 CLI 인자 > `TOKEN_METER_*` 환경변수 > 사용자 설정 > 기본값이다. 제품 환경변수 예: `TOKEN_METER_DATA_DIR`, `TOKEN_METER_LABEL`. 레포의 설정 파일은 자동 실행 코드나 명령을 제공할 수 없다.
+### 저장 모드와 우선순위
 
-추천 Windows data root는 `%LOCALAPPDATA%/TaskTokenMeter/`이며 UC-003 승인 전 확정값이 아니다. workspace-local 선택 시 `.token-meter/` 제외 규칙을 사용자에게 제시하고 기존 .gitignore를 덮어쓰지 않는다. Hook 설정도 기존 항목을 읽고 자신의 식별 가능한 항목만 병합/제거한다. 이번 단계에서 사용자 설정을 변경하지 않는다.
+UC-003=C에 따라 `global`과 `workspace`를 모두 구현한다. 기본 mode=global은 최초 실행의 구현 기본값이며 사용자 선택 자체를 global로 바꾸는 것이 아니다. workspace별 선택을 사용자 설정의 route registry에 저장한다. registry는 `%LOCALAPPDATA%/TaskTokenMeter/config.json`에 두고 모드가 바뀌어도 위치를 바꾸지 않는다. repo의 설정을 실행 코드로 읽지 않는다.
+
+| 설정 | global | workspace |
+|---|---|---|
+| 기본 DB | `%LOCALAPPDATA%/TaskTokenMeter/ledger.db` | `<canonical-workspace>/.token-meter/ledger.db` |
+| 사용자 지정 경로 | `--data-dir` 또는 TOKEN_METER_DATA_DIR, 로컬 디스크만 | 고정 workspace 경로. data-dir 동시 지정은 인자 오류 |
+| 범위 | 여러 workspace의 레코드, 조회는 workspace 필터 적용 | 해당 root workspace와 그 Turn에 귀속된 child만 |
+| 쓰기 실패 | 오류, 자동 fallback 없음 | 오류, global fallback 없음 |
+| Git 제외 | 작업 트리 밖 | 생성 시 로컬 Git exclude에 `/.token-meter/`를 중복 없이 추가 |
+
+일반 설정 우선순위는 CLI > TOKEN_METER_* 환경변수 > 해당 workspace의 저장된 설정 > 사용자 기본값 > 제품 기본값이다. `--storage global|workspace`와 `--data-dir`는 조회 대상의 일회성 override가 될 수 있지만 write 명령에서 활성 route를 바꾸지는 않는다. 활성 route와 다른 저장소에 쓰려 하면 `storage migrate` 안내와 코드 7을 반환한다. Hook은 registry의 활성 route를 사용하며 실행 환경의 override와 충돌하면 로컬 진단을 남기고 종료한다.
+
+선택자가 없는 대화형 최초 실행은 기본 global을 사용한다. 명시적으로 workspace mode로 초기화한 경우에는 해당 root에 첫 route를 등록한다. 초기 route 생성은 workspace lock 안에서 한 번만 수행한다. registry 변경은 workspace lock 다음에 짧은 전역 registry lock을 잡고 최신 파일을 다시 읽어 해당 workspace 항목만 병합한다. atomic replace 전 registry version을 비교하고 다른 workspace의 동시 설정 변경을 보존한다. 모든 경로에서 workspace → registry 순서로 잠근다. 두 DB 모두 기존 기록이 있는데 활성 route가 없으면 자동 병합하지 않고 충돌을 보고한다. 선택된 workspace와 무관한 모든 레포의 DB를 자동 탐색하지 않는다.
+
+workspaceId는 canonical workspace path에 대한 결정적 로컬 ID로 만들고 저장소 이동 시 그대로 유지한다. root Turn의 storage owner는 root workspace이며, 다른 경로의 child 실행을 독립 수집한 레코드와 같은 origin execution identity를 사용한다. 여러 저장소를 읽더라도 root와 child 합계를 더하지 않는다. workspace 경로 자체의 이동/동일 remote 병합은 별도 명시적 remap이 없는 한 자동 수행하지 않는다.
+
+### 전환·중복·실패 복구
+
+제품 명령은 `storage status --workspace <path>`, `storage migrate --workspace <path> --to global|workspace [--dry-run]`이다. 사용자 지정 global destination에는 `--data-dir`를 함께 줄 수 있다. 이 명령들은 이번 준비 단계에서 실행하지 않는다.
+
+1. dry-run으로 대상 workspace·DB 경로·레코드 수·충돌·필요한 Git 제외 변경을 보여준다. 명령에 mode와 workspace가 명시되어야 하며 암묵적 전체 DB migration은 없다.
+2. 모든 writer와 migrator가 공유하는 workspace lock을 획득하고 현재 route generation을 확인한다. 진행 중인 오래된 scan은 commit 시 generation mismatch로 다시 읽는다.
+3. 지원되는 SQLite backup 방식으로 source snapshot을 보존한다. WAL DB 파일 하나만 단순 복사하지 않는다. migration journal에는 경로·identity·phase만 보관한다.
+4. 목적지 transaction에서 해당 workspace의 레코드와 연결된 child를 import한다. 다른 workspace의 기록은 유지한다. 같은 stable key·같은 projection hash는 한 건으로 유지한다. 목적지가 같은 route lineage에서 이전 전환의 superseded 보관본이고 migration receipt로 확인되면, 현재 활성 source snapshot을 authority로 해당 workspace projection을 갱신한다. 이 경우 source 원본 로그가 정리됐더라도 보관된 provenance와 membership 검증으로 왕복 전환할 수 있다. 독립적으로 쓰인 목적지 또는 lineage가 불명확한 서로 다른 projection은 revision 숫자만 비교해 덮어쓰지 않고 충돌로 중단한다.
+5. logical identity, native usage, root membership, 품질·수치·manifest를 대조하고 목적지 transaction을 commit한다. 검증 실패는 rollback, source와 활성 route 유지다.
+6. 목적지 commit을 journal에 기록한 뒤 registry를 atomic replace하여 activeStoreId와 generation을 바꾼다. 이후 source의 workspace 레코드는 superseded 보관본으로 취급한다. source 데이터를 자동 삭제하지 않는다.
+7. destination commit 후 route 전환 전 crash가 나면 재실행 시 manifest로 같은 import를 인식하고 전환을 완료한다. route 전환 후 crash는 registry가 authority이며 journal/source 표식을 정리한다. 두 DB의 동시 atomic commit을 가정하지 않는다.
+
+조회·통계의 기본 source는 활성 저장소 하나다. 명시적으로 비활성 보관 DB를 열면 inactive snapshot이라고 표시하고 현재 합계에 더하지 않는다. 최초 실행에서 충돌하는 DB를 발견하면 활성 source를 명시한 복구 계획을 먼저 보여준다. 명시적 purge는 대상 workspace/store와 영향 preview를 제공하고 자동 정리와 혼동하지 않는다.
+
+### 대화형·비대화형 세션 선택
+
+- 대화형 조회는 stdin/stdout이 터미널에 연결되어 있고, CI/Hook/--json/--non-interactive가 아닌 경우다. 명시적 Provider+session은 검증 후 사용한다. session ID만 주어 Provider 사이에서 모호하면 후보를 제시한다.
+- 후보 0개는 no-data, 후보 1개는 바로 조회, 후보 2개 이상은 Provider·session ID·상태·마지막 관측 시각·workspace를 표시한 번호 선택을 제공한다. 폴더명·라벨 등 출력 문자열의 제어 문자는 제거한다.
+- 번호와 Enter로 선택하고 q/Ctrl+C/EOF는 코드 130으로 취소한다. 빈 입력은 기본 후보를 선택하지 않고 안내한다. 잘못된 번호는 재입력, 선택 후 source가 사라지면 후보를 재조회한다. 토큰 출력 전에 선택한 session을 재검증한다.
+- --json, CI, stdin 또는 stdout 리디렉션, --non-interactive에서는 선택 UI 없이 명시적인 --provider와 --session을 요구한다. 자동 단일 후보 선택도 하지 않는다. 누락 시 코드 4; --json은 schemaVersion과 error.code=selector_required인 JSON만 stdout에 출력한다.
+- Hook은 검증된 payload의 provider/session을 명시 선택으로 사용한다. Hook에서 대화형 입력·자동 최신 세션 선택은 금지한다. stdout은 Provider별 neutral response 계약만 따른다.
+- storage 명령은 session 선택이 필요 없고 workspace를 명시한다. --non-interactive를 통해 터미널 감지 오판도 방지할 수 있다. MVP는 번호 기반 CLI이며 전체 화면 TUI 라이브러리나 그래픽 UI를 도입하지 않는다.
+
+### 설정과 개인정보
+
+TOKEN_METER_LABEL은 opt-in 설정이 활성화된 경우에만 수집한다. metadata는 실제 source provenance와 capturedAt을 기록하며 현재 설정을 과거 환경으로 채우지 않는다. Hook 설정은 자신의 식별 가능한 항목만 병합/제거한다. workspace 저장 디렉터리는 생성 전에 안전한 로컬 경로와 Git exclude 적용 가능 여부를 확인한다. 제외 설정 실패 또는 이미 추적 중인 계측 파일이 발견되면 코드 7로 실패하며 해당 경로에 새 수집 데이터를 쓰지 않는다. 비 Git workspace에서는 제외 설정이 불필요하다. 이번 단계에서 실제 DB·registry·사용자 Hook 설정은 생성하지 않는다.
 
 ## Security Considerations
 
@@ -252,12 +303,17 @@ JSON 진단에는 code, provider, 익명화/로컬 session reference, source ind
 | 여러 모델·fork·중단 | provenance 보존, 복사 소비량 재청구 없음 |
 | concurrent writer / crash / migration | transaction 무결성, stale writer 방지 |
 | Hook timeout·설정 기존 항목·설치 제거 | Provider 진행 유지, 기존 설정 보존 |
+| global ↔ workspace migration | 새 usage 추가·원본 정리 후 왕복, superseded lineage·독립 충돌 구별, 다른 workspace 보존 |
+| migration 중 crash·writer 경합·권한 실패 | journal 재개, route generation, source 보존·fallback 금지 |
+| 터미널 다중 후보·잘못된 번호·취소·후보 삭제 | 재입력·code 130·선택 후 재검증 |
+| JSON/CI/파이프의 단일·다중 후보 | 선택자 없으면 즉시 code 4, prompt·추가 stdout 없음 |
+| workspace Git exclude 실패·추적 파일 | 새 계측 데이터 write 중단, 기존 제외 항목 보존 |
 
 coverage는 동일 기간·모델·metric·실행 scope의 독립 reference가 있을 때 metric별 `observed/reference`로만 계산한다. denominator 0, 시점 불일치, reference 부재는 N/A다. 100% 초과를 clamp하지 않고 scope mismatch로 진단한다. 세션 coverage를 Turn coverage로 복사하지 않는다.
 
 ## Build / Deployment
 
-UC-002 승인 후 `.sln`/`.csproj`, SDK pin, dependency lock, reproducible build와 테스트 명령을 만든다. 첫 Windows 지원 RID를 확정하고 개발 runtime이 없는 깨끗한 환경에서 설치→명령→Hook→제거를 확인한다. 설치 경로에 공백/한글을 포함한다. Native AOT는 필요성이 측정되기 전 기본값으로 정하지 않는다.
+UC-002=A를 기준으로 `.sln`/`.csproj`, SDK pin, dependency lock, reproducible build와 테스트 명령을 만든다. Windows win-x64 self-contained 배포를 우선하며 개발 runtime이 없는 깨끗한 환경에서 설치→명령→Hook→제거를 확인한다. 설치 경로에 공백/한글을 포함한다. Native AOT는 필요성이 측정되기 전 기본값으로 정하지 않는다.
 
 원격 publish, GitHub Release, 실제 사용자 Hook 설치는 구현·검증 결과를 갖춘 뒤 명시적 요청에 따라 수행한다.
 

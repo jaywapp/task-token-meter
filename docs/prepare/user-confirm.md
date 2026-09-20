@@ -1,10 +1,10 @@
 # User Confirmation — 구현 전 결정
 
-작성일: 2026-09-19
+작성일: 2026-09-19 · 설계 동기화: 2026-09-20
 
-이 문서는 준비 작업의 산출물이다. 아래 Pending 항목에 답하지 않아도 문서 준비는 완료할 수 있지만, 영향을 받는 제품 구현은 시작하지 않는다. 추천안은 사용자 승인으로 간주하지 않는다.
+사용자가 커밋 `2498359`에 기록한 UC-001~008의 선택을 기준으로 design.md, architecture.md, plan.md를 동기화했다. 아래 User Decision은 사용자 선택 원문을 유지한다. 현재 Pending 사용자 결정은 없으며 UC-009/010은 Deferred다. 각 Context/Options/Recommendation은 결정 전 검토 이력이고 현재 동작은 User Decision 및 동기화된 설계를 따른다.
 
-상태는 `Pending`(결정 필요), `Confirmed`(근거가 있는 결정), `Deferred`(후속 범위)만 사용한다. 변경 시 선택, 날짜, 결정 근거를 기록한다. 관련 설계·계획 문서 동기화는 별도 세션에서 수행한다.
+상태는 `Pending`(결정 필요), `Confirmed`(근거가 있는 결정), `Deferred`(후속 범위)만 사용한다. 변경 시 선택, 날짜, 결정 근거를 기록한다. 관련 설계·계획 문서는 2026-09-20에 동기화했다. Provider 실측 검증은 별도 기술 작업이다.
 
 ## 기존 확정 원칙
 
@@ -19,24 +19,24 @@
 
 ## 결정 요약
 
-| ID | 결정 | 추천 | 상태 | 직접 영향 TASK |
+| ID | 결정 | 사용자 선택 | 상태 | 직접 영향 TASK |
 |---|---|---|---|---|
 | UC-001 | Turn 경계·수집 전략 | 로그 ID 중심, 조회 prototype 후 비차단 Hook MVP | Confirmed | 002, 003, 005, 006, 007, 011 |
 | UC-002 | 구현 언어·배포·OS | C#/.NET, Windows 우선 self-contained CLI | Confirmed | 002, 003, 013 |
-| UC-003 | 저장 위치·workspace 구분 | 전역 로컬 저장, worktree별 workspace | Confirmed | 002, 009, 010 |
+| UC-003 | 저장 위치·workspace 구분 | C — 전역·workspace-local 모두 지원 | Confirmed | 002, 009, 010, 015 |
 | UC-004 | Ledger 형식 | SQLite | Confirmed | 002, 009 |
 | UC-005 | child·미관측 usage의 MVP 범위 | 귀속 가능한 child 포함, 미귀속 공개 | Confirmed | 002, 007 |
 | UC-006 | 비용 환산 범위 | Later 유지, MVP는 지표 정의·한계 우선 | Confirmed | 002, 012 |
 | UC-007 | 메타데이터·보관·개인정보 | 본문 제외 최소 metadata + opt-in hash/label | Confirmed | 002, 009, 010, 011 |
-| UC-008 | CLI 계약·세션 선택 | 명시 선택자 + 유일 후보만 자동 선택 | Confirmed | 002, 010 |
+| UC-008 | CLI 계약·세션 선택 | C — 다중 세션 대화형 선택, 비대화형 명시 선택자 | Confirmed | 002, 010, 016 |
 
-위 표는 직접 차단만 요약한다. 선행 TASK가 차단되면 후속 TASK에도 전파되며, 자세한 의존 관계는 [plan.md](plan.md)에 있다.
+위 표는 해당 결정이 영향을 주는 작업을 요약한다. 사용자 결정에 따른 차단은 모두 해소되었고, 기술 작업의 선행 관계는 [plan.md](plan.md)에 있다.
 
 ## UC-001 — Turn 경계와 Hook 도입 순서
 
 ### Context
 
-원안은 UserPromptSubmit/Stop 사이를 Turn으로 측정한다. 검토 의견은 로그의 promptId/turn_id를 기준으로 재구축하고 Hook은 재집계 트리거로만 쓰자고 제안한다. 검토 의견이 원안을 대체하도록 승인된 기록은 없다.
+원안은 UserPromptSubmit/Stop 사이를 Turn으로 측정한다. 검토 의견은 로그의 promptId/turn_id를 기준으로 재구축하고 Hook은 재집계 트리거로만 쓰자고 제안한다. 결정 전에는 변경 승인이 없었으며, 아래 User Decision에서 A안이 승인되었다.
 
 ### Options
 
@@ -55,6 +55,7 @@ architecture의 Data Flow·State·Adapter, plan의 수집·CLI·Hook 작업을 �
 ### User Decision
 
 **Confirmed — A** (2026-09-19) — 로그 ID 중심 + 조회 prototype → 비차단 Hook MVP.
+
 ## UC-002 — 제품 언어, 배포 방식, 지원 OS
 
 ### Context
@@ -78,6 +79,7 @@ architecture의 Technology Stack·Directory·Build, 모든 코드 경로와 테�
 ### User Decision
 
 **Confirmed — A** (2026-09-19) — C#/.NET 제품 + Windows 우선 self-contained CLI.
+
 ## UC-003 — 저장 위치와 workspace 경계
 
 ### Context
@@ -101,6 +103,7 @@ Discovery·Configuration·Workspace 모델·저장 및 CLI 테스트를 갱신�
 ### User Decision
 
 **Confirmed — C** (2026-09-19) — 전역 로컬 저장과 workspace-local 저장 모두 지원.
+
 ## UC-004 — Ledger 저장 형식
 
 ### Context
@@ -124,6 +127,7 @@ Storage interface는 유지할 수 있으나 architecture의 저장·복구·mig
 ### User Decision
 
 **Confirmed — A** (2026-09-19) — SQLite Ledger.
+
 ## UC-005 — 서브에이전트 포함과 측정 한계
 
 ### Context
@@ -147,6 +151,7 @@ root 집계 계약, UX scope 표시, source discovery, fixture, 인수 기준을
 ### User Decision
 
 **Confirmed — A** (2026-09-19) — 귀속 가능한 child usage를 root Turn에 포함하고 미귀속 usage는 별도 표시.
+
 ## UC-006 — 비용 추정을 MVP에 포함할지
 
 ### Context
@@ -170,6 +175,7 @@ design 범위·CLI 출력, architecture에 pricing component, TASK-012 포함 �
 ### User Decision
 
 **Confirmed — A** (2026-09-19) — 비용 추정은 Later로 유지하고 MVP는 토큰 사용량 계측에 집중.
+
 ## UC-007 — 수집 metadata와 보관 정책
 
 ### Context
@@ -193,6 +199,7 @@ ContextSnapshot, native usage 추출 정책, 진단 rotation, retention/purge와
 ### User Decision
 
 **Confirmed — A** (2026-09-19) — 최소 metadata 기본 수집 + 추가 정보 opt-in.
+
 ## UC-008 — CLI 조회 계약과 세션 모호성
 
 ### Context
@@ -216,6 +223,7 @@ FR-01~05·CLI 예시·exit code·선택자 테스트·설치 안내를 함께 �
 ### User Decision
 
 **Confirmed — C** (2026-09-19) — 여러 세션이 존재하면 대화형 선택; 비대화형 환경은 명시적 선택자 사용.
+
 ## UC-009 — Task 묶기와 통계
 
 ### Context / Options
@@ -246,4 +254,12 @@ CLI를 우선한다. Dashboard/TUI를 요청할 때 taste·impeccable을 적용�
 
 ## 결정을 기록하는 방법
 
-예: `UC-001=A, UC-002=A, ...`로 선택을 전달할 수 있다. 이는 입력 형식 예시이며 실제 결정이 아니다. 결정 이후 각 User Decision에 선택·날짜·근거를 기록한다. design.md, architecture.md, plan.md 동기화는 별도 세션에서 수행한다.
+예: `UC-001=A, UC-002=A, ...`로 선택을 전달할 수 있다. 이는 입력 형식 예시이며 실제 결정이 아니다. 결정 이후 각 User Decision에 선택·날짜·근거를 기록한다. 현재 선택의 design.md, architecture.md, plan.md 동기화는 2026-09-20에 완료했다.
+
+## 설계 동기화 기록
+
+- UC-003=C: global/workspace 모드, 활성 route, 양방향 migration, 중복·실패 복구를 설계하고 TASK-015를 추가했다.
+- UC-008=C: 다중 후보 번호 선택과 취소, 비대화형 선택자 검증을 설계하고 TASK-016을 추가했다.
+- UC-006=A: TASK-012를 Deferred로 변경하고 MVP 출시 의존에서 제거했다.
+- UC-007=A는 최소 metadata와 opt-in 확장 선택을 의미한다. 진단 14일/10 MB, global 최초 기본값 등 세부 운영값은 설계의 변경 가능한 구현 기본값이며 사용자가 별도로 지정한 결정이라고 기록하지 않는다.
+- User Decision의 선택 문자·날짜·설명은 원문을 유지했다. 제품 구현이나 Provider 기술 검증을 완료 처리하지 않았다.

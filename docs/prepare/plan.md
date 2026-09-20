@@ -1,20 +1,21 @@
 # Plan — 구현 작업 계획
 
-작성일: 2026-09-19 · 상태: 조건부 계획, 제품 구현 미착수
+작성일: 2026-09-19 · 갱신일: 2026-09-20 · 상태: 사용자 결정 반영 완료, 제품 구현 미착수
 
 ## 계획의 기준
 
-[design.md](design.md), [architecture.md](architecture.md), [user-confirm.md](user-confirm.md)를 작성한 뒤 이 계획을 마지막으로 작성했다. 기준 아이디어는 `docs/ideas/`의 두 문서 전체이며 기준 커밋은 `148f7e7d4919f90df1c37dbc1036622e337f5eda`다.
+[design.md](design.md), [architecture.md](architecture.md), [user-confirm.md](user-confirm.md)를 반영해 이 계획을 마지막으로 갱신했다. 아이디어 기준은 `148f7e7`, 사용자 결정 기준은 `2498359`다. UC-001~008 선택은 A, A, C, A, A, A, A, C이며 사용자 결정 차단은 모두 해소되었다.
 
-- 문서 준비는 완료할 수 있지만, Pending 결정을 무시하고 제품 설계를 확정하지 않는다.
-- `Blocked By`는 직접 차단이며 Dependencies를 통해 후속 작업에도 전파된다.
-- 구현 경로는 C# 추천안을 선택한 경우의 예상 경로다. UC-002가 바뀌면 TASK-002에서 먼저 재작성한다.
-- TASK-001과 TASK-004의 합성 fixture/계약 조사는 제품 언어·저장소 결정 전 진행 가능하다. 실제 개인 로그는 별도 동의를 확인한 범위에서 구조/수치만 조사하고 합성 fixture를 기본으로 한다.
-- 구현·검증 기록에 소요 시간, 모델, 관련 fixture, 실제 Provider 버전을 남긴다.
+- TASK-002의 문서 동기화만 이번에 완료했다. TASK-001의 실측·계약 조사와 제품 코드는 아직 실행하지 않았다.
+- 기술적 미확인 사항은 사용자 선택과 구분한다. Parser 지원 여부는 TASK-001의 근거와 TASK-004의 fixture로 검증한다.
+- C#/.NET Windows CLI, global/workspace SQLite, child 포함, 다중 세션 대화형 선택이 MVP다. 비용 추정 TASK-012는 Deferred다.
+- TASK-015(저장 방식 전환)와 TASK-016(터미널 세션 선택)을 추가하여 두 C 선택의 구현 범위를 분리했다.
+- Blocked By에는 미해결 기술 선행 관계를 적고, 확정된 UC는 차단으로 남기지 않는다.
+- 실제 개인 로그는 승인된 범위에서 구조/수치만 조사하고 합성 fixture를 기본으로 한다. 이번 스킬은 구현 준비 문서까지 수행한다.
 
 ## UI 필요 여부와 시안 생략
 
-MVP의 사용자 인터페이스는 터미널 CLI다. TUI·웹·데스크톱 그래픽 화면은 없고 원안은 Dashboard를 Later로 분류한다. 따라서 그래픽 UI 비교용 `samples/sample1~3`을 만들지 않는다. 조회 완료/진행 중/세션 모호성의 CLI 출력 예시는 design.md에 있고, JSON·무색 출력·80열·리디렉션을 TASK-010에서 검증한다.
+MVP의 사용자 인터페이스는 터미널 CLI다. 다중 세션은 번호 입력 CLI로 선택하며, 전체 화면 TUI·웹·데스크톱 그래픽 화면은 없고 원안은 Dashboard를 Later로 분류한다. 따라서 그래픽 UI 비교용 `samples/sample1~3`을 만들지 않는다. 조회 완료/진행 중/세션 모호성의 CLI 출력 예시는 design.md에 있고, JSON·무색 출력·80열·리디렉션을 TASK-010/016에서 검증한다.
 
 `taste`/`impeccable`에 따른 화면 시안 생성은 그래픽 UI가 범위에 들어올 때 수행한다. 이번에는 관련 스킬을 참고했지만 웹 UI 생성 절차는 적용하지 않았다. 장식용 웹 시안을 만들기 위해 제품 범위를 늘리지 않는다.
 
@@ -28,29 +29,31 @@ MVP의 사용자 인터페이스는 터미널 CLI다. TUI·웹·데스크톱 그
 
 ```mermaid
 flowchart TD
-    T01[TASK-001 Provider 계약 조사] --> T04[TASK-004 Golden fixtures]
-    T01 --> T02[TASK-002 결정 반영]
-    UC[UC-001~008 사용자 결정] --> T02
-    T02 --> T03[TASK-003 프로젝트 기반]
+    T02[TASK-002 사용자 결정 문서 반영 완료] --> T03[TASK-003 프로젝트 기반]
+    T01[TASK-001 Provider 계약 조사] --> T03
+    T01 --> T04[TASK-004 Golden fixtures]
     T03 --> T05[TASK-005 Claude Adapter]
     T03 --> T06[TASK-006 Codex Adapter]
     T03 --> T08[TASK-008 정규화]
+    T03 --> T16[TASK-016 세션 선택]
     T04 --> T05
     T04 --> T06
     T04 --> T08
+    T04 --> T16
     T05 --> T07[TASK-007 root 귀속]
     T06 --> T07
     T07 --> T09[TASK-009 Ledger]
     T08 --> T09
-    T09 --> T10[TASK-010 CLI]
+    T09 --> T15[TASK-015 저장 방식 전환]
+    T15 --> T10[TASK-010 CLI]
+    T16 --> T10
     T10 --> T11[TASK-011 Hook]
-    T10 --> T12[TASK-012 선택적 비용]
     T11 --> T13[TASK-013 E2E 및 배포 검증]
-    T12 -. UC-006에서 MVP 선택 시 .-> T13
     T13 --> T14[TASK-014 교차 리뷰와 인수 문서]
+    T12[TASK-012 비용 추정: Deferred]
 ```
 
-003 이후 005/006/008은 Core 계약이 고정됐을 때 서로 다른 파일을 맡겨 병렬화할 수 있다. 011/012도 독립 경로로 분리 가능하다. Core 계약·schema·동일 브랜치의 Git 상태를 동시에 수정하지 않는다. 실제 위임 여부는 당시 도구·모델 가용성과 토큰 비용을 보고 결정한다.
+003 이후 005/006/008은 Core 계약이 고정됐을 때 서로 다른 파일을 맡겨 병렬화할 수 있다. 016은 Core 계약 고정 후 Adapter 작업과 병렬화할 수 있다. 012는 후속 범위이므로 MVP 병렬 작업에 배정하지 않는다. Core 계약·schema·동일 브랜치의 Git 상태를 동시에 수정하지 않는다. 실제 위임 여부는 당시 도구·모델 가용성과 토큰 비용을 보고 결정한다.
 
 ## TASK-001 — Provider 계약과 관측 한계 조사
 
@@ -79,23 +82,22 @@ High
 ### Reason
 서로 다른 계측 의미와 예외를 판단하는 작업이므로 상위 모델을 사용한다. 대규모 로그 전체를 모델 context에 넣지 않는다.
 
-## TASK-002 — 사용자 결정 반영과 계약 고정
+## TASK-002 — 사용자 결정 반영과 준비 문서 동기화
 
+### Status
+Completed — 2026-09-20. 문서 동기화 완료이며 Provider 계약 실측 완료를 뜻하지 않는다.
 ### Goal
-선택된 범위에 맞게 세 준비 문서와 본 계획을 일관되게 고정한다.
+사용자 선택을 기획·설계·계획에 반영하고 미해결 기술 검증을 구별한다.
 ### Dependencies
-TASK-001.
+사용자 결정 커밋 `2498359`. TASK-001은 후속 기술 검증이며 이 문서 동기화를 차단하지 않는다.
 ### Blocked By
-UC-001, UC-002, UC-003, UC-004, UC-005, UC-006, UC-007, UC-008.
+없음. UC-001~008 모두 Confirmed.
 ### Scope
-- 사용자 선택과 날짜·근거를 기록하고 해당 항목을 Confirmed로 변경한다.
-- 다른 저장소/언어/Hook 옵션이면 architecture·예상 Files·인수 조건을 재작성한다.
-- UC-006=A이면 TASK-012를 Deferred로, B이면 필수로 전환한다. C이면 환산식·명칭·검증을 별도 설계한다.
-- Provider별 지원 capability, neutral Hook response, 정규화 계약을 고정한다.
+UC-003=C의 두 저장 방식과 migration, UC-008=C의 대화형/비대화형 선택, UC-006=A의 비용 Deferred를 반영한다. 기존 선택 원문을 유지한다. Provider schema의 미검증 의미를 승인된 사실로 바꾸지 않는다.
 ### Files
 `docs/prepare/design.md`, `architecture.md`, `user-confirm.md`, `plan.md`.
 ### Validation
-Pending인 채 시작되는 제품 작업이 없고, 변경 옵션과 모순되는 예시·경로·수용 기준이 없다. 기술 미확인 항목이 구현 계약으로 승격되지 않았다.
+확정 선택과 현재 요구사항·CLI 예시가 일치한다. TASK-015/016을 포함한 의존 그래프에 순환이 없고 비용 작업이 MVP를 차단하지 않는다. 모든 User Decision 원문이 유지된다.
 ### Agent
 Codex
 ### Model
@@ -103,18 +105,18 @@ gpt-6-astra
 ### Reasoning Level
 High
 ### Reason
-여러 문서와 사용자 결정을 통합해야 하며 잘못된 범위 확정의 비용이 크다.
+서로 다른 선택과 여러 문서의 의존 관계를 통합한다.
 
 ## TASK-003 — 빌드 가능한 CLI 프로젝트와 계약 타입
 
 ### Goal
 선택된 runtime에서 Core/Adapter/Storage/CLI를 독립 검증할 기반을 만든다.
 ### Dependencies
-TASK-002.
+TASK-001, TASK-002.
 ### Blocked By
-UC-001, UC-002; 나머지는 TASK-002를 통해 전파.
+사용자 결정 차단 없음. 위 Dependencies의 미완료 작업을 먼저 완료한다.
 ### Scope
-정식 solution/project, SDK·패키지 lock, nullable·checked token 연산, interface/DTO, 테스트 프로젝트, 최소 CI build/test를 만든다. 실제 provider parser나 임시 전역 Hook을 넣지 않는다.
+정식 solution/project, SDK·패키지 lock, nullable·checked token 연산, interface/DTO(StorageRoute·InteractionMode 포함), 테스트 프로젝트, 최소 CI build/test를 만든다. 실제 provider parser나 임시 전역 Hook을 넣지 않는다.
 ### Files
 `TaskTokenMeter.sln`, `global.json`, `Directory.Build.props`, `src/*/*.csproj`, `src/TaskTokenMeter.Core/Contracts/`, `tests/*/*.csproj`, `.github/workflows/ci.yml`.
 ### Validation
@@ -135,7 +137,7 @@ Medium
 ### Dependencies
 TASK-001.
 ### Blocked By
-없음. 미확정 scope는 서로 다른 대안 fixture로 명시하고 제품 기본값으로 정하지 않는다.
+없음. Provider의 미확인 usage 의미는 반례로 명시하며 사용자 scope 선택과 혼동하지 않는다.
 ### Scope
 2턴, streaming duplicate, alias 혼재, total-only, root inclusive/main-only, 늦은 child, fork 복제, partial tail, 손상행, model change, 누락 identity를 최소 JSONL로 작성한다. 기대 native/normalized usage·귀속·quality를 손계산하고 fixture별 출처/합성 여부를 적는다.
 ### Files
@@ -158,7 +160,7 @@ Claude 지원 버전의 관측을 중복 없는 호출과 턴 후보로 변환�
 ### Dependencies
 TASK-003, TASK-004.
 ### Blocked By
-UC-001; TASK-002의 결정 게이트 전파.
+사용자 결정 차단 없음. 위 Dependencies의 미완료 작업을 먼저 완료한다.
 ### Scope
 source snapshot 읽기, UUID 중복 제거, request/message alias와 compatible revision 선택, promptId·parent metadata 추출, TTL breakdown, 지원 형식 판별을 구현한다. 다른 호출의 필드별 max를 합치지 않는다.
 ### Files
@@ -181,7 +183,7 @@ High
 ### Dependencies
 TASK-003, TASK-004.
 ### Blocked By
-UC-001; TASK-002의 결정 게이트 전파.
+사용자 결정 차단 없음. 위 Dependencies의 미완료 작업을 먼저 완료한다.
 ### Scope
 지원 rollout/record 버전 판별, usageKind 분류, 누적 snapshot 교체, delta의 검증 전용 사용, lineage 추출, total-only/nonzero cache-write 보존을 구현한다. 구형 session-only 형식을 임의 Turn 차감으로 대체하지 않는다.
 ### Files
@@ -204,7 +206,7 @@ High
 ### Dependencies
 TASK-005, TASK-006.
 ### Blocked By
-UC-001, UC-005.
+사용자 결정 차단 없음. 위 Dependencies의 미완료 작업을 먼저 완료한다.
 ### Scope
 root session lineage, Membership, 미귀속 observation, source completeness, execution/measurement 상태 분리, 늦은 child 갱신, 재개/fork origin identity를 구현한다.
 ### Files
@@ -227,7 +229,7 @@ Provider 차이를 통합하는 핵심 설계 구현이며 오류가 전체 결�
 ### Dependencies
 TASK-003, TASK-004.
 ### Blocked By
-TASK-002 결정 게이트. 추가 사용자 선택 없음.
+사용자 결정 차단 없음. 위 Dependencies의 미완료 작업을 먼저 완료한다.
 ### Scope
 native 보존, null propagation, knownSubtotal, TTL breakdown 검증, Codex cached/reasoning 부분집합, checked 합계, maxObservedInput·apiCallCount 산출 조건, coverage N/A 조건을 구현한다.
 ### Files
@@ -250,13 +252,13 @@ High
 ### Dependencies
 TASK-003, TASK-004, TASK-007, TASK-008.
 ### Blocked By
-UC-003, UC-004, UC-007.
+사용자 결정 차단 없음. 위 Dependencies의 미완료 작업을 먼저 완료한다.
 ### Scope
-선택된 저장 엔진, unique key·transaction·schemaVersion·migration, expectedRevision/source generation 비교, missing-source 보존, 명시적 purge와 진단 보관 제한을 구현한다. network filesystem 지원을 임의로 넓히지 않는다.
+global/workspace 두 모드의 SQLite와 workspace별 활성 route, unique key·transaction·schemaVersion·migration, expectedRevision/source generation 비교, missing-source 보존, 명시적 purge와 진단 보관 제한을 구현한다. mode와 독립된 workspaceId, 단일 활성 writer, route generation 검사를 공통 계약으로 제공하고 migration은 TASK-015에서 구현한다. network filesystem 지원을 임의로 넓히지 않는다.
 ### Files
 `src/TaskTokenMeter.Storage/`, `tests/TaskTokenMeter.IntegrationTests/LedgerTests.cs`, `docs/storage.md`.
 ### Validation
-동시 8 writer·같은 snapshot 10회·역순 완료·강제 종료·디스크 쓰기 실패·migration 실패에서 일관성을 유지한다. truncate/권한 거부가 기존 정상값을 0으로 덮어쓰지 않는다.
+두 저장 모드 각각에서 동시 8 writer·같은 snapshot 10회·역순 완료·강제 종료·디스크 쓰기 실패·migration 실패에서 일관성을 유지한다. truncate/권한 거부가 기존 정상값을 0으로 덮어쓰지 않는다.
 ### Agent
 Codex
 ### Model
@@ -271,15 +273,15 @@ transaction과 crash 복구는 반복 코드보다 상태 전이 검증의 비�
 ### Goal
 사용자가 세션·측정 범위·품질을 혼동하지 않고 조회한다.
 ### Dependencies
-TASK-007, TASK-008, TASK-009.
+TASK-007, TASK-008, TASK-009, TASK-015, TASK-016.
 ### Blocked By
-UC-003, UC-007, UC-008.
+사용자 결정 차단 없음. 위 Dependencies의 미완료 작업을 먼저 완료한다.
 ### Scope
-current/last/turns/sync/rebuild, workspace 탐색, selector, JSON·text renderer, --strict·exit code, fresh/stale 표시, 최소 help와 개인정보 설정을 구현한다. history/stats/task grouping은 제외한다.
+current/last/turns/sync/rebuild, workspace 탐색, TASK-016 selector 연결, storage status/migrate 명령 연결, JSON·text renderer, --strict·exit code, fresh/stale 표시, 최소 help와 개인정보 설정을 구현한다. history/stats/task grouping은 제외한다.
 ### Files
 `src/TaskTokenMeter.Cli/`, `tests/TaskTokenMeter.IntegrationTests/CliTests.cs`, `docs/cli.md`.
 ### Validation
-design의 세 출력 시나리오, empty/partial/unsupported/ambiguous 상태가 실행된다. text와 JSON 수치가 같고 JSON stdout은 parse 가능하다. 80열, 한글/공백 경로, NO_COLOR, PowerShell 5.1 리디렉션을 확인한다.
+design의 완료·진행 중·대화형 선택·비대화형 오류·저장 전환 시나리오, empty/partial/unsupported/ambiguous 상태가 실행된다. text와 JSON 수치가 같고 JSON stdout은 parse 가능하다. 80열, 한글/공백 경로, NO_COLOR, PowerShell 5.1 리디렉션을 확인한다.
 ### Agent
 Codex
 ### Model
@@ -296,9 +298,9 @@ Medium
 ### Dependencies
 TASK-009, TASK-010.
 ### Blocked By
-UC-001, UC-007.
+사용자 결정 차단 없음. 위 Dependencies의 미완료 작업을 먼저 완료한다.
 ### Scope
-실제 지원 버전별 Stop/SubagentStop/Interrupt 등 필요한 command Hook만 연결한다. event neutral response·async·timeout·path validation, 기존 설정 병합·backup·제거, 실시간 context provenance를 구현한다. 이름이 비슷하다고 Provider Hook 설정을 공유하지 않는다.
+실제 지원 버전별 Stop/SubagentStop/Interrupt 등 필요한 command Hook만 연결한다. event neutral response·async·timeout·path validation, 기존 설정 병합·backup·제거, 실시간 context provenance를 구현한다. registry의 활성 저장 모드를 사용하고 Hook context를 명시적 세션 선택으로 처리한다. migration과 경합한 commit은 route generation으로 재확인한다. 이름이 비슷하다고 Provider Hook 설정을 공유하지 않는다.
 ### Files
 `src/TaskTokenMeter.Cli/Hooks/`, `packaging/hooks/`, `tests/TaskTokenMeter.IntegrationTests/HookTests.cs`, `docs/hooks.md`.
 ### Validation
@@ -312,14 +314,17 @@ High
 ### Reason
 Provider별 종료/출력 계약과 설정 보존을 함께 검증해야 한다.
 
-## TASK-012 — 선택적 로컬 비용 추정
+## TASK-012 — 로컬 비용 추정 (Deferred)
+
+### Status
+Deferred — UC-006=A. MVP 실행·출시 의존에서 제외한다.
 
 ### Goal
-사용자가 UC-006=B를 선택했을 때만 모델·TTL별 추정 비용을 제공한다.
+후속 비용 기능이 별도로 요청되면 모델·TTL별 추정 비용을 설계·구현한다.
 ### Dependencies
 TASK-007, TASK-008, TASK-010.
 ### Blocked By
-UC-006. A 선택 시 Deferred로 전환하고 MVP 필수 의존에서 제거한다. C 선택 시 별도 환산 계약 승인 전 시작하지 않는다.
+후속 범위 요청 전 실행하지 않는다. 현재 UC-006은 Pending이 아닌 Confirmed A다.
 ### Scope
 버전·통화·유효일·모델별 단가표, call 단위 계산, unknown pricing/TTL의 N/A, 알려진 부분합, 출처와 추정임을 표시한다. 과거 호출에 오늘의 가격을 무조건 적용하지 않는다.
 ### Files
@@ -340,15 +345,15 @@ Medium
 ### Goal
 두 Provider의 지원 범위와 배포 가능한 품질을 증거로 확인한다.
 ### Dependencies
-TASK-010, TASK-011. UC-006=B이면 TASK-012도 필수. UC-001=C이면 TASK-002에서 Hook 관련 의존과 출시 기준을 먼저 변경한다.
+TASK-010, TASK-011, TASK-015, TASK-016. TASK-012는 Deferred이므로 의존하지 않는다.
 ### Blocked By
-UC-002 및 앞선 작업의 모든 미해결 차단.
+사용자 결정 차단 없음. 위 Dependencies의 미완료 작업을 먼저 완료한다.
 ### Scope
-합성 E2E와 승인된 실환경 smoke, 동일 scope 참조 비교, 성능 30회 측정, 8 writer, 깨끗한 Windows 설치·runtime 부재·native dependency 검증, support matrix를 작성한다.
+합성 E2E와 승인된 실환경 smoke, 동일 scope 참조 비교, 성능 30회 측정, 8 writer, 양방향 migration·crash recovery·TTY/CI/파이프 선택 행렬, 깨끗한 Windows 설치·runtime 부재·native dependency 검증, support matrix를 작성한다.
 ### Files
 `tests/TaskTokenMeter.IntegrationTests/EndToEndTests.cs`, `packaging/`, `docs/validation/acceptance.md`, `docs/validation/performance.md`.
 ### Validation
-FR-01~12와 design Success Criteria에 pass/fail/evidence를 연결한다. 20 MB/100,000행 p95·RSS와 Hook 수락 시간을 실제 측정한다. 기준 미달이면 원인과 수정 작업을 열고 합격 처리하지 않는다. 두 Provider 중 하나 미검증이면 전체 지원 완료라 하지 않는다.
+FR-01~14와 design Success Criteria에 pass/fail/evidence를 연결한다. 20 MB/100,000행 p95·RSS와 Hook 수락 시간을 실제 측정한다. 기준 미달이면 원인과 수정 작업을 열고 합격 처리하지 않는다. 두 Provider 중 하나 미검증이면 전체 지원 완료라 하지 않는다.
 ### Agent
 Codex
 ### Model
@@ -363,9 +368,9 @@ High
 ### Goal
 정확성·개인정보·비차단 동작을 독립적으로 검토하고 다음 유지보수자가 재현할 수 있게 한다.
 ### Dependencies
-TASK-013. TASK-012는 UC-006에서 정한 필수/Deferred 상태를 확인한다.
+TASK-013. TASK-012는 UC-006=A에 따른 Deferred이며 인수 게이트가 아니다.
 ### Blocked By
-해결되지 않은 구현 차단 및 Critical/High 리뷰 이슈.
+미완료 TASK-013 및 Critical/High 리뷰 이슈. 사용자 결정 차단 없음.
 ### Scope
 구현 diff, scope claim, dedup/null/lineage, 저장 회복·설정 보존, 민감 데이터 경로를 리뷰한다. 설치·제거·조회·지원 버전·측정 한계·복구 절차를 README에 작성한다. 가능하면 구현과 다른 에이전트 세션에서 리뷰한다.
 ### Files
@@ -381,6 +386,52 @@ High
 ### Reason
 핵심 오류와 개인정보 누출을 독립 검토하고 전체 결과를 통합하는 작업이다.
 
+## TASK-015 — 저장 모드 전환과 복구
+
+### Goal
+UC-003=C의 global/workspace 저장 간 전환을 데이터 손실·중복 없이 제공한다.
+### Dependencies
+TASK-009.
+### Blocked By
+사용자 결정 차단 없음. TASK-009의 route·ledger 계약 완료 필요.
+### Scope
+storage status/migrate/dry-run 서비스, workspace lock, backup·migration journal, 목적지 검증, route atomic switch, superseded source 유지, 충돌 탐지와 재시도를 구현한다. root/child identity를 보존하고 다른 workspace의 기록을 덮어쓰지 않는다. workspace Git exclude를 기존 항목 보존 방식으로 적용한다.
+### Files
+`src/TaskTokenMeter.Storage/Routing/`, `Migration/`, `tests/TaskTokenMeter.IntegrationTests/StorageMigrationTests.cs`, `docs/storage.md`.
+### Validation
+global→workspace→global 왕복 후 동일 usage·quality·membership을 유지한다. 중간에 usage가 추가되고 원본 로그가 정리된 경우에도 검증된 superseded lineage로 복귀한다. 다른 workspace의 동시 registry 변경을 보존한다. 같은 migration 재시도·서로 다른 destination 데이터·각 commit 경계의 crash·늦은 Hook writer·readonly destination·disk full·Git exclude 실패를 검증한다. 오류 시 기존 활성 route 유지, 자동 fallback·자동 source 삭제 없음.
+### Agent
+Codex
+### Model
+gpt-5.6-sol
+### Reasoning Level
+High
+### Reason
+두 저장소와 설정 파일 사이의 원자성을 가정할 수 없어 복구 단계와 경합 검증이 필요하다.
+
+## TASK-016 — 대화형 세션 선택과 비대화형 계약
+
+### Goal
+UC-008=C에 맞게 터미널에서 세션을 고르고 자동 실행에서는 입력을 기다리지 않게 한다.
+### Dependencies
+TASK-003, TASK-004.
+### Blocked By
+사용자 결정 차단 없음. Core selector·fixture 계약 완료 필요.
+### Scope
+번호 기반 selector, 후보 표시·제어 문자 제거, 입력 검증·재입력·q/Ctrl+C/EOF 취소, 선택 후 재검증, 명시 ID 우선, 단일 후보 자동 조회를 구현한다. --json/CI/리디렉션/--non-interactive는 provider+session 선택자를 요구하고 Hook은 검증된 context를 사용한다. 전체 화면 TUI는 만들지 않는다.
+### Files
+`src/TaskTokenMeter.Cli/Selection/`, `tests/TaskTokenMeter.UnitTests/SessionSelectorTests.cs`, `tests/TaskTokenMeter.IntegrationTests/TerminalSelectionTests.cs`.
+### Validation
+대화형 0/1/N 후보·잘못된 번호·빈 입력·취소·사라진 후보를 재현한다. JSON/CI/stdin 또는 stdout pipe에서는 후보가 하나여도 선택자 누락 시 code 4를 즉시 반환한다. JSON stdout 오염과 Hook의 prompt 호출이 없고 취소 시 write 없이 code 130이다.
+### Agent
+Codex
+### Model
+gpt-5.6-terra
+### Reasoning Level
+Medium
+### Reason
+확정된 CLI 흐름의 구현이며 대화형·비대화형 분기와 입출력 검증이 중심이다.
+
 ## 준비 작업의 완료 점검
 
 | 항목 | 상태 |
@@ -390,8 +441,14 @@ High
 | 그래픽 UI 필요 여부 판단 | 불필요, CLI 예시 포함 |
 | plan을 마지막에 작성 | 완료 |
 | 모든 TASK에 Agent / Model / Reasoning Level / Reason | 명시 |
-| Pending 결정과 Blocked By 연결 | 명시 |
+| 사용자 선택과 Blocked By 갱신 | UC-001~008 반영, 사용자 차단 없음 |
+| 저장 전환·대화형 선택 작업 | TASK-015/016 추가 |
+| 비용 작업 | TASK-012 Deferred, MVP 의존에서 제외 |
 | 제품 구현·실제 Hook 설치 | 수행하지 않음 |
 | 실제 Provider 로그 정확성·성능 검증 | 구현 계획에 포함, 이번 준비에서 수행하지 않음 |
 
-문서 준비 완료는 사용자 결정이나 제품 정확성 검증 완료를 의미하지 않는다. 즉시 시작 가능한 후속 작업은 TASK-001의 계약 조사이며, 제품 구현은 결정 반영 게이트를 통과한 뒤 시작한다.
+사용자 결정 반영과 준비 문서 동기화는 완료했다. 제품 정확성 검증은 아직 수행하지 않았다. 다음 작업은 TASK-001의 Provider 계약 조사이며 이후 fixture·프로젝트·Adapter 구현으로 진행한다. TASK-002만 Completed이고 TASK-012는 Deferred, 나머지는 미착수다.
+
+## 문서 검증 기록 — 2026-09-20
+
+필수 문서 4개, 내부 링크, 16개 TASK의 필수 필드·모델·추론 수준, 작업 의존 그래프, UC 선택 원문 보존을 점검해 통과했다. 의존 그래프에 순환이 없으며 Deferred 비용 작업을 MVP가 참조하지 않는다. `git diff --check`와 원본 ideas 무변경도 확인했다. 사용자 결정 커밋에서 변경된 파일은 docs/prepare/의 문서뿐이며 원본 ideas는 보존한다. 이 기록은 제품 빌드·실제 로그 측정·Hook 실행을 통과했다는 뜻이 아니다.
