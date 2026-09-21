@@ -45,9 +45,33 @@ try {
 
         Write-Host "==> Installing the packed tarballs"
         Write-Host ("    npm " + (& $npm.Source --version))
-        & $npm.Source init -y --silent | Out-Null
-        & $npm.Source install --silent --no-audit --no-fund $platformTarball $launcherTarball
+
+        # The launcher declares the platform package as an optional dependency by exact version. That
+        # version is not on the registry while testing, and npm 10 then skips the launcher itself, so the
+        # manifest resolves both packages from the local tarballs.
+        $platformSpecifier = "file:" + $platformTarball.Replace("\", "/")
+        $launcherSpecifier = "file:" + $launcherTarball.Replace("\", "/")
+        $manifest = [pscustomobject]@{
+            name         = "task-token-meter-install-test"
+            version      = "1.0.0"
+            private      = $true
+            dependencies = [pscustomobject]@{
+                "task-token-meter"                    = $launcherSpecifier
+                "@jaywapp/task-token-meter-win32-x64" = $platformSpecifier
+            }
+            overrides    = [pscustomobject]@{
+                "@jaywapp/task-token-meter-win32-x64" = $platformSpecifier
+            }
+        }
+        [IO.File]::WriteAllText((Join-Path $sandbox "package.json"), ($manifest | ConvertTo-Json -Depth 5), (New-Object Text.UTF8Encoding($false)))
+
+        & $npm.Source install --no-audit --no-fund
         Test-Condition "npm install exit code is 0" ($LASTEXITCODE -eq 0) "exit $LASTEXITCODE"
+        $installedModules = @()
+        if (Test-Path -LiteralPath (Join-Path $sandbox "node_modules")) {
+            $installedModules = @(Get-ChildItem -LiteralPath (Join-Path $sandbox "node_modules") -Directory | ForEach-Object { $_.Name })
+        }
+        Write-Host ("    node_modules: " + ($installedModules -join ", "))
 
         # npm writes several bin shims on Windows and the set differs between npm releases, so the
         # functional checks run through whichever entry point exists.
