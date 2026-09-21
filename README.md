@@ -18,33 +18,61 @@ Task Token Meter는 Claude Code와 Codex CLI의 로컬 JSONL 사용량을 root T
 
 ## 설치
 
-저장소에서 Windows self-contained package를 만든다. 출력 디렉터리는 존재하지 않는 새 경로여야 한다.
+GitHub Release의 Windows 패키지를 설치 스크립트로 내려받는다. 관리자 권한과 .NET 설치는 필요 없다. 스크립트를 먼저 읽어 보고 실행하는 방식을 권장한다.
+
+~~~powershell
+Invoke-WebRequest `
+  https://github.com/jaywapp/task-token-meter/releases/download/v0.1.0-preview.1/install.ps1 `
+  -OutFile install-task-token-meter.ps1
+
+Get-Content .\install-task-token-meter.ps1
+.\install-task-token-meter.ps1 -Version 0.1.0-preview.1
+~~~
+
+안정판이 나온 뒤에는 버전을 생략하면 최신 안정판이 설치된다. GitHub의 `latest`는 prerelease를 가리키지 않으므로, preview만 있는 동안에는 `-Version`이나 `-PreRelease`를 지정해야 한다.
+
+~~~powershell
+.\install-task-token-meter.ps1              # 최신 안정판
+.\install-task-token-meter.ps1 -PreRelease  # 최신 preview
+~~~
+
+설치 결과는 다음과 같다.
+
+| 경로 | 내용 |
+|---|---|
+| `%LOCALAPPDATA%\Programs\TaskTokenMeter\versions\<version>` | 버전별 실행 파일과 runtime |
+| `%LOCALAPPDATA%\Programs\TaskTokenMeter\bin\task-token-meter.cmd` | 버전과 무관한 고정 명령. 사용자 PATH에 추가된다 |
+| `%LOCALAPPDATA%\Programs\TaskTokenMeter\install-state.json` | 활성 버전과 설치 기록 |
+
+업데이트는 같은 명령을 새 버전으로 다시 실행한다. 새 버전을 별도 디렉터리에 설치하고 검증한 뒤 고정 명령이 가리키는 대상을 바꾸며, 실패하면 이전 버전이 그대로 활성 상태로 남는다. Hook 항목은 버전 디렉터리가 아니라 고정 명령을 기록하므로 업데이트 후에도 유효하다.
+
+새 terminal에서 다음을 확인한다.
+
+~~~powershell
+task-token-meter --version
+task-token-meter --help
+~~~
+
+### 저장소에서 직접 빌드
 
 ~~~powershell
 dotnet restore TaskTokenMeter.sln --locked-mode
 $outputRoot = Join-Path $env:TEMP ("task-token-meter-" + [guid]::NewGuid().ToString("N"))
-.\packaging\Build-WindowsPackage.ps1 -OutputRoot $outputRoot
-
-$installRoot = Join-Path $env:LOCALAPPDATA "Programs\TaskTokenMeter"
-New-Item -ItemType Directory -Force -Path $installRoot | Out-Null
-Expand-Archive -LiteralPath (Join-Path $outputRoot "task-token-meter-win-x64.zip") -DestinationPath $installRoot
-$meter = Join-Path $installRoot "task-token-meter.exe"
-& $meter --help
+.\packaging\Build-WindowsPackage.ps1 -OutputRoot $outputRoot -Version 0.1.0-preview.1
+.\packaging\install.ps1 -Version 0.1.0-preview.1 -ArchivePath (Join-Path $outputRoot "task-token-meter-win-x64.zip")
 ~~~
 
-패키지 스크립트는 win-x64, self-contained, ReadyToRun 실행 파일과 Hook wrapper를 만들고 native SQLite, runtime 없는 clean-install 실행, 공백·한글 경로 wrapper를 검사한다. TASK-014 검증 artifact는 `packaging/artifacts/task014-review-final-win-x64/task-token-meter-win-x64.zip`, SHA-256 `CEA9A31FB20D6CA6B9B68EC2F947E364A33476138234757019CA83A218B16CB8`이다.
+패키지 스크립트는 win-x64, self-contained, ReadyToRun 실행 파일과 Hook wrapper를 만들고 native SQLite, runtime 없는 clean-install 실행, 공백·한글 경로 wrapper를 검사한다. `packaging/Test-Installer.ps1`은 설치·업데이트·실패 복구·제거와 Hook 경로 유지를 임시 디렉터리에서 검증한다.
 
 ## 빠른 시작
 
 현재 Git workspace는 `--workspace`를 생략하면 현재 디렉터리부터 위로 올라가며 가장 가까운 `.git`을 찾는다. 현재 구현의 자동 세션 후보는 workspace로 걸러지지 않으므로, 안전하고 재현 가능한 조회에는 `--provider`와 `--session`을 함께 지정한다.
 
 ~~~powershell
-$meter = Join-Path $env:LOCALAPPDATA "Programs\TaskTokenMeter\task-token-meter.exe"
-
-& $meter current --provider codex --session "<session-id>" --workspace .
-& $meter last --provider codex --session "<session-id>" --workspace .
-& $meter turns --provider codex --session "<session-id>" --workspace . --json
-& $meter sync --provider codex --session "<session-id>" --workspace .
+task-token-meter current --provider codex --session "<session-id>" --workspace .
+task-token-meter last --provider codex --session "<session-id>" --workspace .
+task-token-meter turns --provider codex --session "<session-id>" --workspace . --json
+task-token-meter sync --provider codex --session "<session-id>" --workspace .
 ~~~
 
 - `current`: 관측 시각이 가장 최근인 Turn 하나를 표시한다.
@@ -52,6 +80,7 @@ $meter = Join-Path $env:LOCALAPPDATA "Programs\TaskTokenMeter\task-token-meter.e
 - `turns`: 선택한 session의 Turn 전체를 시간순으로 표시한다.
 - `sync`: source를 다시 읽고 활성 ledger에 revision과 source manifest를 함께 반영한다.
 - `rebuild`: 선택 session을 source에서 다시 계산해 활성 ledger에 반영한다. source가 없으면 저장된 projection을 provisional fallback으로 읽는다.
+- `version`(`--version`): 설치된 버전을 표시한다. `--json`은 `version`과 `fileVersion`을 함께 출력한다.
 
 `--json`은 stdout에 JSON 객체 하나만 쓴다. `--strict`는 결과에 observed가 아닌 measurement가 하나라도 있으면 결과를 출력한 뒤 exit code 6을 반환한다. session 후보가 여러 개이고 실제 대화형 console이면 번호를 선택할 수 있다. CI, pipe, redirect, `--json`, `--non-interactive`에서는 선택을 기다리지 않고 code 4를 반환한다.
 
@@ -67,10 +96,10 @@ $env:TOKEN_METER_CODEX_SOURCES = "D:\safe-fixtures\codex"
 기본 모드는 global이다. global data root는 `%LOCALAPPDATA%\TaskTokenMeter`이고, ledger는 그 아래 `ledger.db`, route registry와 lock은 `state`, migration journal/backup은 `state\migration` 아래에 둔다. workspace 모드는 `<workspace>\.token-meter\ledger.db`를 사용하고 Git exclude를 먼저 확인한다.
 
 ~~~powershell
-& $meter storage status --workspace . --json
-& $meter storage migrate --workspace . --to workspace --dry-run --json
-& $meter storage migrate --workspace . --to workspace --json
-& $meter storage migrate --workspace . --to global --json
+task-token-meter storage status --workspace . --json
+task-token-meter storage migrate --workspace . --to workspace --dry-run --json
+task-token-meter storage migrate --workspace . --to workspace --json
+task-token-meter storage migrate --workspace . --to global --json
 ~~~
 
 Migration은 workspace 단위 writer lock, source backup, manifest 검증, destination import, route switch, journal 완료 순서로 실행된다. source가 route switch 전에 바뀌면 이전 route를 유지하고 code 7로 실패한다. 같은 명령을 다시 실행하면 journal endpoint와 generation을 검증하고 현재 source로 계획을 다시 만든다. crash 뒤에도 완료된 단계와 route를 관찰해 재시도하며, 독립 destination 데이터가 있으면 덮어쓰지 않는다.
@@ -80,14 +109,16 @@ Migration은 workspace 단위 writer lock, source backup, manifest 검증, desti
 설치는 지원 Provider 버전을 명시해야 한다. 기본 설정 파일은 Claude `%USERPROFILE%\.claude\settings.json`, Codex `%USERPROFILE%\.codex\hooks.json`이다. 설치는 기존 설정을 보존하고 `.task-token-meter.bak` backup을 만든 뒤 관리 entry만 추가한다.
 
 ~~~powershell
-& $meter hook install --provider claude --provider-version 2.1.278 --json
-& $meter hook status --provider claude --json
-& $meter hook uninstall --provider claude --json
+task-token-meter hook install --provider claude --provider-version 2.1.278 --json
+task-token-meter hook status --provider claude --json
+task-token-meter hook uninstall --provider claude --json
 
-& $meter hook install --provider codex --provider-version 0.153.4 --json
-& $meter hook status --provider codex --json
-& $meter hook uninstall --provider codex --json
+task-token-meter hook install --provider codex --provider-version 0.153.4 --json
+task-token-meter hook status --provider codex --json
+task-token-meter hook uninstall --provider codex --json
 ~~~
+
+설치 시 기록하는 실행 경로는 버전 디렉터리가 아니라 설치기가 만든 고정 명령(`bin\task-token-meter.cmd`)이다. 따라서 업데이트로 이전 버전 디렉터리가 사라져도 Hook entry는 유효하다. `hook status`는 기록된 실행 파일 경로와 존재 여부(`executableAvailable`)를 함께 보고하므로, 설치를 통째로 옮기거나 지운 경우를 조용한 무동작 대신 확인할 수 있다. `TOKEN_METER_HOOK_EXECUTABLE`로 기록할 경로를 직접 지정할 수도 있다.
 
 다른 설정 파일이나 실행 파일을 시험할 때는 absolute JSON `--settings`와 absolute `--executable`을 지정한다. Hook entrypoint는 payload 크기, event, ID, workspace, `.jsonl` transcript, Provider source root의 물리 경로를 검증한다. junction/symlink가 source root 밖을 가리키면 거부한다. Claude는 빈 stdout, Codex Stop/SubagentStop은 `{}`, Interrupt는 빈 stdout으로 즉시 neutral 응답하고 별도 worker를 시작한다. malformed payload, process 시작 실패, timeout, aggregation 실패는 Provider 실행을 막지 않으며 본문 없는 진단 code만 기록한다.
 
@@ -112,10 +143,16 @@ Session/Turn ID와 token 수치는 CLI 결과에 의도적으로 표시된다. �
 먼저 두 Provider의 관리 Hook entry를 제거한 뒤 설치 디렉터리를 삭제한다.
 
 ~~~powershell
-& $meter hook uninstall --provider claude
-& $meter hook uninstall --provider codex
-Remove-Item -LiteralPath (Split-Path -Parent $meter) -Recurse
+task-token-meter hook uninstall --provider claude
+task-token-meter hook uninstall --provider codex
+
+Invoke-WebRequest `
+  https://github.com/jaywapp/task-token-meter/releases/download/v0.1.0-preview.1/uninstall.ps1 `
+  -OutFile uninstall-task-token-meter.ps1
+.\uninstall-task-token-meter.ps1
 ~~~
+
+제거 스크립트는 설치 디렉터리와 자신이 추가한 PATH 항목만 지운다. Hook entry가 남아 있으면 중단하고 먼저 제거하라고 알린다(`-Force`로 건너뛸 수 있다). ledger는 기본적으로 보존하며 `-RemoveData`를 줄 때만 global data root를 지운다.
 
 데이터도 제거하려면 필요한 백업을 만든 뒤 global `%LOCALAPPDATA%\TaskTokenMeter`, 각 workspace의 `.token-meter`, Provider 설정 옆의 `.task-token-meter.bak`을 사용자가 직접 삭제한다. Workspace mode를 쓰는 중이면 먼저 global로 migration하거나 해당 workspace 데이터가 더 이상 필요 없는지 확인한다.
 
@@ -155,4 +192,8 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File packaging/Smoke-PowerShe
 git diff --check
 ~~~
 
-성능 fixture와 30회 측정 절차는 [성능 검증](docs/validation/performance.md), 전체 수용 판정은 [acceptance](docs/validation/acceptance.md), TASK-014 issue와 scan 증거는 [review](docs/validation/review.md)에 있다.
+성능 fixture와 30회 측정 절차는 [성능 검증](docs/validation/performance.md), 전체 수용 판정은 [acceptance](docs/validation/acceptance.md), TASK-014 issue와 scan 증거는 [review](docs/validation/review.md)에 있다. 배포 채널과 release gate는 [배포 계획](docs/prepare/publish-plan.md)에 있다.
+
+## 라이선스
+
+[MIT](LICENSE).

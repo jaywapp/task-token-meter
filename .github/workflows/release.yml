@@ -1,0 +1,174 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Version to build for verification only, for example 0.1.0-preview.2. No release is created.
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    runs-on: windows-latest
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+
+      - name: Resolve version
+        id: version
+        shell: pwsh
+        run: |
+          if ($env:GITHUB_REF -like 'refs/tags/*') {
+            $tag = $env:GITHUB_REF.Substring('refs/tags/'.Length)
+          }
+          else {
+            $tag = 'v' + '${{ inputs.version }}'
+          }
+          if ($tag -notmatch '^v(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(-[0-9A-Za-z.-]+)?$') {
+            throw "Tag $tag is not a SemVer release tag."
+          }
+          $version = $tag.Substring(1)
+          $prerelease = $version.Contains('-')
+          "tag=$tag" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          "prerelease=$($prerelease.ToString().ToLowerInvariant())" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+
+      - name: Verify the tag builds a main ancestor
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: pwsh
+        run: |
+          git fetch origin main --depth=0
+          git merge-base --is-ancestor $env:GITHUB_SHA origin/main
+          if ($LASTEXITCODE -ne 0) { throw "The tagged commit is not part of the main branch history." }
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
+        with:
+          global-json-file: global.json
+
+      - name: Restore
+        run: |
+          dotnet restore TaskTokenMeter.sln --locked-mode
+          dotnet restore packaging/benchmarks/TaskTokenMeter.PerformanceProbe.csproj --locked-mode
+
+      - name: Build
+        run: dotnet build TaskTokenMeter.sln -c Release --no-restore
+
+      - name: Test
+        run: dotnet test TaskTokenMeter.sln -c Release --no-build
+
+      - name: Build the Windows package
+        id: package
+        shell: pwsh
+        run: |
+          $outputRoot = Join-Path $env:RUNNER_TEMP ('package-' + [Guid]::NewGuid().ToString('N'))
+          $result = & ./packaging/Build-WindowsPackage.ps1 -OutputRoot $outputRoot -Version '${{ steps.version.outputs.version }}' | ConvertFrom-Json
+          "outputRoot=$outputRoot" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          "package=$($result.package)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          "sha256=$($result.sha256)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          "bytes=$($result.bytes)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          "files=$($result.files)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          if ($result.version -ne '${{ steps.version.outputs.version }}') {
+            throw "The packaged version $($result.version) does not match the tag."
+          }
+
+      - name: Windows PowerShell 5.1 smoke
+        shell: pwsh
+        run: |
+          $installRoot = Join-Path '${{ steps.package.outputs.outputRoot }}' 'publish'
+          $executable = Join-Path $installRoot 'task-token-meter.exe'
+          powershell.exe -NoProfile -ExecutionPolicy Bypass -File packaging/Smoke-PowerShell51.ps1 -Executable $executable
+          if ($LASTEXITCODE -ne 0) { throw 'The Windows PowerShell 5.1 smoke failed.' }
+
+      - name: Installer tests
+        shell: pwsh
+        run: ./packaging/Test-Installer.ps1 -ArchivePath '${{ steps.package.outputs.package }}'
+
+      - name: Verify package hashes
+        shell: pwsh
+        run: |
+          $package = '${{ steps.package.outputs.package }}'
+          $expected = (Get-Content -LiteralPath ($package + '.sha256') -Raw).Split(' ')[0].Trim()
+          $actual = (Get-FileHash -LiteralPath $package -Algorithm SHA256).Hash
+          if ($actual -ne $expected.ToUpperInvariant()) { throw 'The package hash does not match the .sha256 file.' }
+          $manifest = Get-Content -LiteralPath (Join-Path '${{ steps.package.outputs.outputRoot }}' 'contents.json') -Raw | ConvertFrom-Json
+          if ($manifest.version -ne '${{ steps.version.outputs.version }}') { throw 'contents.json records a different version.' }
+          if ($manifest.files.Count -lt 1) { throw 'contents.json has no files.' }
+
+      - name: Attest build provenance
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4
+        with:
+          subject-path: ${{ steps.package.outputs.package }}
+
+      - name: Create the draft release
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $outputRoot = '${{ steps.package.outputs.outputRoot }}'
+          $notes = @"
+## Task Token Meter ${{ steps.version.outputs.version }}
+
+Windows x64 self-contained package. .NET runtime installation is not required.
+
+### Install
+
+``````powershell
+Invoke-WebRequest https://github.com/${{ github.repository }}/releases/download/${{ steps.version.outputs.tag }}/install.ps1 -OutFile install-task-token-meter.ps1
+Get-Content .\install-task-token-meter.ps1
+.\install-task-token-meter.ps1 -Version ${{ steps.version.outputs.version }}
+``````
+
+Hooks are not installed automatically. Run ``task-token-meter hook install --provider claude --provider-version 2.1.278`` and the Codex equivalent when you want measurement to start.
+
+### Package
+
+| Item | Value |
+|---|---|
+| Archive | ``task-token-meter-win-x64.zip`` |
+| SHA-256 | ``${{ steps.package.outputs.sha256 }}`` |
+| Bytes | ${{ steps.package.outputs.bytes }} |
+| Files | ${{ steps.package.outputs.files }} |
+
+Verify the provenance with ``gh attestation verify .\task-token-meter-win-x64.zip --repo ${{ github.repository }}``.
+
+### Supported providers
+
+| Target | Supported version |
+|---|---|
+| Claude Code | 2.1.278 |
+| Codex CLI | 0.153.4 |
+| Windows | win-x64 |
+
+Unsupported provider schemas exit with code 5. See the repository documentation for the known limits of this release.
+"@
+          $notesPath = Join-Path $outputRoot 'release-notes.md'
+          Set-Content -LiteralPath $notesPath -Value $notes -Encoding UTF8
+          $arguments = @(
+            'release', 'create', '${{ steps.version.outputs.tag }}',
+            (Join-Path $outputRoot 'task-token-meter-win-x64.zip'),
+            (Join-Path $outputRoot 'task-token-meter-win-x64.zip.sha256'),
+            (Join-Path $outputRoot 'contents.json'),
+            (Join-Path $outputRoot 'install.ps1'),
+            (Join-Path $outputRoot 'uninstall.ps1'),
+            '--draft', '--title', 'Task Token Meter ${{ steps.version.outputs.version }}',
+            '--notes-file', $notesPath
+          )
+          if ('${{ steps.version.outputs.prerelease }}' -eq 'true') { $arguments += '--prerelease' }
+          gh @arguments
+          if ($LASTEXITCODE -ne 0) { throw 'The draft release could not be created.' }

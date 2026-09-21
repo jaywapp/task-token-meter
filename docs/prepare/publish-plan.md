@@ -1,7 +1,7 @@
 # Task Token Meter 배포 계획
 
-작성일: 2026-09-21  
-상태: Proposed — 구현 및 외부 게시 전
+작성일: 2026-09-21 · 갱신일: 2026-09-21  
+상태: Phase 1 구현 완료 — 라이선스, `--version`, 버전 주입, 설치기, release workflow 반영
 
 ## 목적
 
@@ -30,18 +30,31 @@ GitHub Release의 바이너리를 각 채널이 다시 빌드하지 않는다. R
 - runtime이 없는 clean-install, 공백·한글 경로, Hook wrapper smoke를 수행한다.
 - Release build와 전체 단위·통합 테스트가 통과한다.
 
-### 미구현 항목
+### Phase 1에서 구현한 항목 (2026-09-21)
 
-- GitHub Release workflow와 버전 태그 규칙
-- `task-token-meter --version`
-- 태그 버전의 assembly/file/informational version 주입
-- 사용자용 설치·업데이트·제거 스크립트
+- MIT `LICENSE`
+- `task-token-meter version` / `--version`(text·JSON)과 태그 버전의 assembly/file/informational version 주입
+- `packaging/Build-WindowsPackage.ps1 -Version`: 패키지 버전 주입, 실행 파일이 보고하는 버전 검증, `contents.json`에 버전 기록, `install.ps1`·`uninstall.ps1`을 release asset으로 복사
+- `packaging/install.ps1`, `packaging/uninstall.ps1`: 다운로드·SHA-256 검증·버전별 설치·고정 명령(shim)·사용자 PATH·`install-state.json`·실패 시 이전 버전 유지
+- `packaging/Test-Installer.ps1`: 설치, 업데이트, Hook 경로 유지, 실패 복구, 제거를 임시 디렉터리에서 검증(22개 검사)
+- `.github/workflows/release.yml`: 태그 검증, 빌드·테스트, 패키징, PowerShell 5.1 smoke, 설치기 테스트, 해시 재검증, artifact attestation, draft release 생성
+
+### 남은 미구현 항목
+
 - npm launcher 및 플랫폼 패키지
 - WinGet manifest
 - Windows 코드 서명
-- 공개 배포 라이선스
 
-현재 `.github/workflows/ci.yml`은 restore, build, test만 수행하며 Release asset을 만들거나 게시하지 않는다. 저장소에는 아직 버전 태그와 GitHub Release가 없다.
+`.github/workflows/ci.yml`은 restore, build, test를 계속 담당하고 release asset은 만들지 않는다.
+
+### Hook 경로 결정 (2026-09-21 추가)
+
+설치를 버전별 디렉터리에 두면 Hook entry가 사라질 경로를 가리킬 수 있다. Hook은 fail-open이므로 이 경우 오류 없이 측정만 멈춘다. 따라서 다음을 결정했다.
+
+- 설치 레이아웃은 `versions\<version>`과 버전 독립적인 `bin\task-token-meter.cmd`로 나눈다.
+- `hook install`은 버전 디렉터리가 아니라 `bin` 고정 명령을 기록한다. 기본 해석은 `TOKEN_METER_HOOK_EXECUTABLE` → 설치기 shim → 현재 실행 파일 순이다.
+- `hook status`는 기록된 실행 경로와 존재 여부를 함께 보고해 stale 상태를 드러낸다.
+- 설치기 테스트가 "업데이트 후에도 Hook entry가 유효하다"를 회귀로 검증한다.
 
 ## 참고한 AI CLI 배포 사례
 
@@ -159,7 +172,18 @@ gh attestation verify .\task-token-meter-win-x64.zip `
 
 ### 사용자 명령
 
-안정판 기본 설치:
+GitHub의 `latest` 경로는 prerelease를 가리키지 않는다. 따라서 preview만 있는 동안 `releases/latest/download/...`는 404다. preview 기간에는 태그 URL을 안내하고, 안정판이 게시된 뒤에 `latest` 한 줄 설치를 README 기본 경로로 올린다.
+
+preview 설치:
+
+```powershell
+Invoke-WebRequest `
+  https://github.com/jaywapp/task-token-meter/releases/download/v0.1.0-preview.1/install.ps1 `
+  -OutFile install-task-token-meter.ps1
+.\install-task-token-meter.ps1 -Version 0.1.0-preview.1
+```
+
+안정판 게시 이후의 기본 설치:
 
 ```powershell
 irm https://github.com/jaywapp/task-token-meter/releases/latest/download/install.ps1 | iex
@@ -185,10 +209,11 @@ preview 또는 특정 버전 설치는 저장한 스크립트에 명시적 옵�
 
 ### 설치 동작
 
+- Windows PowerShell 5.1 이상에서 동작하고 필요하면 TLS 1.2를 켠다.
 - Windows x64만 허용하고 지원하지 않는 OS/architecture는 변경 없이 종료한다.
-- GitHub Release에서 ZIP과 SHA-256을 HTTPS로 내려받는다.
+- GitHub Release에서 ZIP과 SHA-256을 HTTPS로 내려받는다. `-ArchivePath`로 로컬 패키지를 설치할 수도 있다.
 - 압축을 풀기 전에 SHA-256을 검증한다.
-- 기본 설치 위치는 `%LOCALAPPDATA%\Programs\TaskTokenMeter\<version>`이다.
+- 기본 설치 위치는 `%LOCALAPPDATA%\Programs\TaskTokenMeter\versions\<version>`이다.
 - `%LOCALAPPDATA%\Programs\TaskTokenMeter\bin`에 고정 command shim을 둔다.
 - 사용자 PATH에 `bin`을 중복 없이 추가한다.
 - 설치 상태를 `install-state.json`에 기록한다.
@@ -280,15 +305,17 @@ manifest는 GitHub Release의 고정 asset URL과 SHA-256을 참조한다. 제�
 - 라이선스와 지원 정책이 저장소 및 package metadata에 명시된다.
 - Windows 서명 정책과 미서명 바이너리 제한을 문서화하거나 코드 서명을 적용한다.
 
-## 선행 결정
+## 선행 결정 (2026-09-21 확정)
 
-외부 게시 구현 전에 다음 결정을 확정해야 한다.
+| 항목 | 결정 |
+|---|---|
+| 공개 배포 라이선스 | MIT (`LICENSE`) |
+| 최초 prerelease 버전 | `v0.1.0-preview.1` |
+| npm publisher와 scope | unscoped `task-token-meter`, 플랫폼 package는 `@jaywapp` |
+| Release 승인 방식 | workflow가 draft를 만들고 maintainer가 수동 게시 |
+| Windows 코드 서명 | preview에는 도입하지 않고 미서명임을 release 본문에 명시. 안정판 전에 재검토 |
 
-1. 공개 배포 라이선스: MIT 등 허용 범위
-2. 최초 prerelease 버전: 권장 `v0.1.0-preview.1`
-3. npm publisher와 scope: unscoped `task-token-meter`, 플랫폼 package용 `@jaywapp`
-4. Release 승인 방식: GitHub Environment reviewer 또는 draft 수동 게시
-5. Windows 코드 서명 도입 시점
+npm trusted publishing 설정과 WinGet community repository 제출은 저장소 밖 계정 작업이 필요하므로 해당 단계에서 별도로 수행한다.
 
 ## 구현 순서
 

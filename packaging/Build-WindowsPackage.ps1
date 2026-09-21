@@ -1,5 +1,6 @@
 param(
-    [string]$OutputRoot = (Join-Path ([IO.Path]::GetTempPath()) ("task-token-meter-package-" + [Guid]::NewGuid().ToString("N")))
+    [string]$OutputRoot = (Join-Path ([IO.Path]::GetTempPath()) ("task-token-meter-package-" + [Guid]::NewGuid().ToString("N"))),
+    [string]$Version
 )
 
 $ErrorActionPreference = "Stop"
@@ -15,9 +16,16 @@ $installRoot = Join-Path $outputRoot ("clean install " + $korean)
 $archivePath = Join-Path $outputRoot "task-token-meter-win-x64.zip"
 New-Item -ItemType Directory -Path $publishRoot -Force | Out-Null
 
-& dotnet publish (Join-Path $repoRoot "src\TaskTokenMeter.Cli\TaskTokenMeter.Cli.csproj") `
-    -c Release -r win-x64 --self-contained true -o $publishRoot `
-    -p:RestoreLockedMode=true -p:DebugSymbols=false -p:DebugType=None -p:PublishReadyToRun=true
+$publishArguments = @(
+    (Join-Path $repoRoot "src\TaskTokenMeter.Cli\TaskTokenMeter.Cli.csproj"),
+    "-c", "Release", "-r", "win-x64", "--self-contained", "true", "-o", $publishRoot,
+    "-p:RestoreLockedMode=true", "-p:DebugSymbols=false", "-p:DebugType=None", "-p:PublishReadyToRun=true"
+)
+if ($Version) {
+    if ($Version.StartsWith("v")) { $Version = $Version.Substring(1) }
+    $publishArguments += ("-p:Version=" + $Version)
+}
+& dotnet publish @publishArguments
 if ($LASTEXITCODE -ne 0) { throw "dotnet publish failed." }
 
 $requiredFiles = @("task-token-meter.exe", "coreclr.dll", "hostfxr.dll", "e_sqlite3.dll")
@@ -52,6 +60,14 @@ try {
     if ($LASTEXITCODE -ne 0 -or ($help -join "`n") -notmatch "token-meter") {
         throw "Self-contained clean-install smoke failed."
     }
+
+    $versionJson = & (Join-Path $installRoot "task-token-meter.exe") version --json 2>&1
+    if ($LASTEXITCODE -ne 0) { throw "The published executable failed to report its version." }
+    $reportedVersion = (($versionJson -join "") | ConvertFrom-Json).version
+    if (-not $reportedVersion) { throw "The published executable reported an empty version." }
+    if ($Version -and $reportedVersion -ne $Version) {
+        throw "The published version $reportedVersion does not match the requested version $Version."
+    }
 }
 finally {
     $env:DOTNET_ROOT = $oldDotnetRoot
@@ -80,6 +96,7 @@ $files = Get-ChildItem -LiteralPath $publishRoot -Recurse -File | Sort-Object Fu
 }
 $manifest = [pscustomobject]@{
     schemaVersion = 1
+    version = $reportedVersion
     runtimeIdentifier = "win-x64"
     selfContained = $true
     files = $files
@@ -89,8 +106,12 @@ $manifestPath = Join-Path $outputRoot "contents.json"
 $archiveHash = (Get-FileHash -LiteralPath $archivePath -Algorithm SHA256).Hash
 [IO.File]::WriteAllText(($archivePath + ".sha256"), ($archiveHash + "  " + [IO.Path]::GetFileName($archivePath) + "`n"), [Text.UTF8Encoding]::new($false))
 
+Copy-Item -LiteralPath (Join-Path $PSScriptRoot "install.ps1") -Destination (Join-Path $outputRoot "install.ps1")
+Copy-Item -LiteralPath (Join-Path $PSScriptRoot "uninstall.ps1") -Destination (Join-Path $outputRoot "uninstall.ps1")
+
 [pscustomobject]@{
     package = $archivePath
+    version = $reportedVersion
     sha256 = $archiveHash
     bytes = (Get-Item -LiteralPath $archivePath).Length
     files = $files.Count
