@@ -42,6 +42,6 @@ installer는 기존 JSON을 구조적으로 읽고 unknown field와 unrelated Ho
 
 Hook entrypoint는 stdin을 최대 64 KiB까지만 읽고 지원 이벤트, ID 길이, 절대 workspace, `.jsonl` transcript와 Provider source allowlist를 검증한다. 결과와 관계없이 성공 코드 `0`과 Provider별 neutral stdout을 반환한다. process 시작 실패, malformed payload, 취소, timeout, Adapter·storage·parse 오류는 사용자 작업으로 전파하지 않는다.
 
-실제 집계는 별도 `hook worker` process가 수행한다. 기본 제한 시간은 10초다. 실패 진단은 `%LOCALAPPDATA%/TaskTokenMeter/diagnostics/hooks.jsonl`에 code, provider, event, duration만 기록하며 10 MiB에서 회전한다. session ID, 경로, 예외 메시지, 원문 context는 기록하지 않는다.
+실제 집계는 별도 `hook worker` process가 수행한다. worker는 Hook process의 표준 스트림을 상속하지 않는다(세 스트림을 리다이렉트한 뒤 곧바로 닫는다). 따라서 Hook process가 끝나는 즉시 Provider의 stdout pipe가 닫히고, Provider는 aggregation 완료를 기다리지 않는다. 기본 제한 시간은 10초다. 실패 진단은 `%LOCALAPPDATA%/TaskTokenMeter/diagnostics/hooks.jsonl`에 code, provider, event, duration만 기록하며 10 MiB에서 회전한다. session ID, 경로, 예외 메시지, 원문 context는 기록하지 않는다.
 
 `packaging/hooks/claude`와 `packaging/hooks/codex`에는 배포 manifest와 Windows wrapper가 따로 있다. wrapper는 패키지 안의 실행 파일이 사라져도 성공 종료하며, Codex wrapper는 `{}` neutral JSON을 반환한다.

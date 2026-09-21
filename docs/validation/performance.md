@@ -67,12 +67,18 @@ CLI `current` 한 번은 아직 source를 세 번 읽는다. `SessionSelector`�
 
 ## Hook 수락 및 process 시작
 
-`HookEntryPoint`가 검증된 Codex payload를 받아 실제 Windows `rundll32.exe` stub process를 시작하는 경로를 30회 측정했다. neutral stdout `{}`와 종료 코드 0을 매번 확인했다.
+`HookEntryPoint`가 검증된 Codex payload를 받아 실제 Windows stub process(`%ComSpec%`, 즉 `cmd.exe`)를 시작하는 경로를 30회 측정했다. neutral stdout `{}`와 종료 코드 0을 매번 확인했다. launcher가 stdin을 곧바로 닫으므로 `/c` 없이 시작된 `cmd.exe`는 EOF를 읽고 즉시 종료한다.
 
 | 지표 | p50 | p95 | max | 목표 | 판정 |
 |---|---:|---:|---:|---:|---|
-| acceptance + process start | 7.34 ms | 9.87 ms | 17.40 ms | p95 ≤ 250 ms | Pass |
+| acceptance + process start (2026-09-21) | 3.16 ms | 8.89 ms | 11.79 ms | p95 ≤ 250 ms | Pass |
 
-Hook 경로는 `PERF-001` 최적화로 바뀌지 않았으므로 위 표는 2026-09-20 기록을 유지한다. 2026-09-21 재측정에서도 같은 probe가 p50 4.29 ms, p95 8.98 ms, max 13.72 ms로 동일한 판정을 재현했다.
+같은 실행의 CLI 수치는 cold 748.11 ms, warm p50 702.04 ms, p95 730.53 ms, max 731.41 ms, peak RSS max 108.91 MiB로 `PERF-001` 판정도 재현했다. 실행 전후 `cmd.exe`와 `rundll32.exe` 프로세스 수가 같아 stub이 남지 않음을 확인했다.
+
+### 이전 stub과 발견한 결함 (2026-09-21)
+
+이전 probe는 `rundll32.exe`를 stub으로 썼다. `rundll32.exe`는 worker 인자를 DLL 이름으로 해석해 오류 대화상자를 띄운 채 종료하지 않아, probe를 실행할 때마다 프로세스가 누적됐다(한 작업 세션에서 159개). 2026-09-20 기록(p50 7.34 ms, p95 9.87 ms, max 17.40 ms)은 이 stub으로 측정한 값이다.
+
+원인을 추적하다 제품 결함도 발견했다. `ProcessHookWorkerLauncher`가 stdin만 리다이렉트해 worker가 Hook process의 stdout/stderr를 상속했다. 이 경우 Provider의 stdout pipe가 worker 종료 시점까지 열려 있어 Provider가 neutral 응답 대신 aggregation 완료를 기다리게 되고, worker 출력이 Hook 응답에 섞일 수 있다. probe가 반환되지 않고 멈춘 것, `cmd.exe` stub의 배너가 probe JSON에 섞인 것이 같은 증상이다. launcher는 이제 세 표준 스트림을 모두 리다이렉트하고 곧바로 닫으며, 위 측정에서 probe 출력에 stub 배너가 섞이지 않았다.
 
 timeout, process-start failure, malformed payload는 `HookTests.WorkerTimeoutAndRouteConflictAreAbsorbed`와 `HookTests.ParseStartMissingExecutableAndCancellationFailuresAreAlwaysNeutral`에서 비차단 종료를 검증한다.

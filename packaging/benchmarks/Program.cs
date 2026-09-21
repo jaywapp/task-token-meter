@@ -179,8 +179,12 @@ static string UsageLine(int index)
 
 static async Task<object> MeasureHookAcceptanceAsync(string root, string workspace, string sourceRoot, string sourcePath, int runCount)
 {
-    var stubPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System), "rundll32.exe");
-    if (!File.Exists(stubPath)) throw new FileNotFoundException("The Windows stub process was not found.", stubPath);
+    // The stub stands in for the hook worker process. rundll32.exe treats the worker arguments as a DLL
+    // name, shows an error dialog and never exits, so every run leaked a process. The command processor
+    // started without /c reads commands from stdin; the launcher closes stdin right after start, so it
+    // exits immediately with code 0.
+    var stubPath = Environment.GetEnvironmentVariable("ComSpec");
+    if (string.IsNullOrEmpty(stubPath) || !File.Exists(stubPath)) throw new FileNotFoundException("The command processor stub was not found.", stubPath);
     var provider = HookProvider.Codex;
     var validator = new HookContextValidator(new Dictionary<HookProvider, IReadOnlyList<string>> { [provider] = [sourceRoot] });
     var launcher = new ProcessHookWorkerLauncher(stubPath);

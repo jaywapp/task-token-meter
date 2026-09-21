@@ -14,12 +14,35 @@ public sealed class ProcessHookWorkerLauncher(string executablePath) : IHookWork
 
     public void Start(HookWorkerRequest request)
     {
+        var process = Process.Start(CreateStartInfo(executablePath, request))
+            ?? throw new InvalidOperationException("Hook worker did not start.");
+
+        // Closing the parent ends of every pipe detaches the worker from this process. The worker writes
+        // nothing, so it never observes the closed pipes.
+        process.StandardInput.Close();
+        process.StandardOutput.Close();
+        process.StandardError.Close();
+        process.Dispose();
+    }
+
+    /// <summary>
+    /// Builds the worker start info. All three standard streams are redirected: a non-redirected stream
+    /// is inherited from the Hook process, which would keep the provider's stdout pipe open until the
+    /// worker exits and make the provider wait for the aggregation instead of the neutral response.
+    /// </summary>
+    public static ProcessStartInfo CreateStartInfo(string executablePath, HookWorkerRequest request)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(executablePath);
+        ArgumentNullException.ThrowIfNull(request);
+
         var startInfo = new ProcessStartInfo
         {
             FileName = executablePath,
             UseShellExecute = false,
             CreateNoWindow = true,
-            RedirectStandardInput = true
+            RedirectStandardInput = true,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true
         };
         startInfo.ArgumentList.Add("hook");
         startInfo.ArgumentList.Add("worker");
@@ -47,10 +70,7 @@ public sealed class ProcessHookWorkerLauncher(string executablePath) : IHookWork
         startInfo.ArgumentList.Add(request.DiagnosticsPath);
         startInfo.ArgumentList.Add("--timeout-ms");
         startInfo.ArgumentList.Add(((int)request.Timeout.TotalMilliseconds).ToString(System.Globalization.CultureInfo.InvariantCulture));
-
-        var process = Process.Start(startInfo) ?? throw new InvalidOperationException("Hook worker did not start.");
-        process.StandardInput.Close();
-        process.Dispose();
+        return startInfo;
     }
 
     private static string ValidateExecutable(string path)
