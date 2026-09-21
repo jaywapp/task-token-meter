@@ -187,13 +187,67 @@ public abstract class ProviderHookInstaller
             _ => HookInstallationState.PartiallyInstalled
         };
         var backup = BackupPath(settingsPath);
+        var executable = FindManagedExecutable(root);
         return new HookInstallationStatus(
             Provider,
             state,
             settingsPath,
             count,
             Events.Count,
-            fileSystem.FileExists(backup) ? backup : null);
+            fileSystem.FileExists(backup) ? backup : null,
+            executable,
+            executable is not null && fileSystem.FileExists(executable));
+    }
+
+    /// <summary>
+    /// Reads the executable recorded in the first managed entry so that <c>hook status</c> can report a
+    /// stale path, which happens when an update removes the version directory an entry points at.
+    /// </summary>
+    private string? FindManagedExecutable(JsonObject root)
+    {
+        if (root["hooks"] is not JsonObject hooks)
+        {
+            return null;
+        }
+
+        foreach (var eventName in Events)
+        {
+            if (hooks[eventName] is not JsonArray groups)
+            {
+                continue;
+            }
+
+            var command = groups
+                .OfType<JsonObject>()
+                .SelectMany(static group => group["hooks"] is JsonArray handlers ? handlers : [])
+                .Where(IsManagedHandler)
+                .Select(static handler => handler!["command"]?.GetValue<string>())
+                .FirstOrDefault(static value => !string.IsNullOrEmpty(value));
+            if (command is not null && TryReadQuotedExecutable(command, out var executable))
+            {
+                return executable;
+            }
+        }
+
+        return null;
+    }
+
+    private static bool TryReadQuotedExecutable(string command, out string executable)
+    {
+        executable = string.Empty;
+        if (command.Length < 2 || command[0] != '"')
+        {
+            return false;
+        }
+
+        var closing = command.IndexOf('"', 1);
+        if (closing <= 1)
+        {
+            return false;
+        }
+
+        executable = command[1..closing];
+        return true;
     }
 
     private static JsonObject GetOrCreateHooks(JsonObject root)
