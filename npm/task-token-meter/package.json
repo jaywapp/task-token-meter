@@ -1,0 +1,41 @@
+{
+  "name": "task-token-meter",
+  "version": "0.0.0-dev",
+  "description": "Per-turn token usage meter for Claude Code and Codex CLI sessions (Windows x64).",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jaywapp/task-token-meter.git"
+  },
+  "homepage": "https://github.com/jaywapp/task-token-meter#readme",
+  "bugs": {
+    "url": "https://github.com/jaywapp/task-token-meter/issues"
+  },
+  "keywords": [
+    "claude-code",
+    "codex",
+    "tokens",
+    "usage",
+    "observability",
+    "cli"
+  ],
+  "bin": {
+    "task-token-meter": "bin/task-token-meter.js"
+  },
+  "files": [
+    "bin/task-token-meter.js",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "os": [
+    "win32"
+  ],
+  "cpu": [
+    "x64"
+  ],
+  "optionalDependencies": {
+    "@jaywapp/task-token-meter-win32-x64": "0.0.0-dev"
+  }
+}
