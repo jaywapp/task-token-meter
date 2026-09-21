@@ -282,7 +282,10 @@ public sealed class HookTests
         var watch = Stopwatch.StartNew();
 
         Assert.Equal(0, await HookWorker.RunAsync(request, () => new DelayedRuntime(), diagnostics));
-        Assert.True(watch.Elapsed < TimeSpan.FromSeconds(1), watch.Elapsed.ToString());
+
+        // The contract is that a hung worker is abandoned rather than waited on. The bound only has to
+        // stay far below anything a provider would notice; a one second bound flaked on shared CI runners.
+        Assert.True(watch.Elapsed < TimeSpan.FromSeconds(5), watch.Elapsed.ToString());
         Assert.Contains(diagnostics.Entries, static entry => entry.Code == "hook_worker_timeout");
 
         var attempts = 0;

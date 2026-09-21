@@ -1,6 +1,10 @@
 ## Build output
 bin/
 obj/
+
+## The npm launcher entry point is source, not build output
+!npm/task-token-meter/bin/
+!npm/task-token-meter/bin/*.js
 TestResults/
 artifacts/
 
