@@ -2,7 +2,9 @@
 
 ## 판정
 
-전체 판정은 **Fail**이다. TASK-014 High 수정 후 Release 전체 테스트는 134/134(단위 54, 통합 80) 통과했다. 두 Provider의 합성 전체 흐름, 저장·migration, Hook, 패키징, RSS와 Hook latency는 검증되었다. 다만 자동 session discovery가 workspace를 필터하지 않아 FR-04/FR-05는 Partial이며, 공식 21 MiB/100,000행 조회의 warm p95가 1,648.19 ms로 1초 목표를 넘는 `PERF-001`이 release blocker다.
+전체 판정은 **Fail**이다. TASK-014 High 수정 후 Release 전체 테스트는 134/134(단위 54, 통합 80) 통과했고, `PERF-001` 최적화 뒤 재실행에서는 147/147(단위 67, 통합 80) 통과했다. 두 Provider의 합성 전체 흐름, 저장·migration, Hook, 패키징, RSS와 Hook latency는 검증되었다.
+
+`PERF-001`은 **해소**되었다. Codex adapter를 streaming projection으로 바꿔 공식 21 MiB/100,000행 조회의 warm p95가 1,648.19 ms에서 821.47 ms로 내려가 1초 목표를 만족한다([performance.md](performance.md)). 남은 Fail 사유는 자동 session discovery가 workspace를 필터하지 않아 FR-04/FR-05가 Partial인 점 하나다.
 
 ## 기능 요구사항
 
@@ -34,7 +36,7 @@
 | 0/unknown/provisional 구별 | Pass | normalization과 CLI JSON/text |
 | UC-001~008 범위 일치 | Pass | 비용 추정 Deferred, 번호 기반 CLI·두 storage mode 구현 |
 | migration 재시도/중복 방지·비대화형 무대기 | Pass | crash boundary, retry replan, 8 writer, selector read count 0 |
-| 20 MiB/100,000행 p95 ≤1초 | **Fail** | p95 1,648.19 ms. [performance.md](performance.md) |
+| 20 MiB/100,000행 p95 ≤1초 | Pass | p95 821.47 ms, peak RSS max 89.02 MiB. [performance.md](performance.md) |
 
 ## TASK-014 리뷰 결과
 
@@ -98,7 +100,9 @@
 
 ## 성능과 남은 제한
 
-`PERF-001`은 이전에 검증된 release blocker로 유지했다. TASK-014 범위에서 parser 성능 최적화를 추가하지 않았고 전체 합격으로 바꾸지 않았다. 완료하려면 streaming projection 또는 안전한 incremental checkpoint와 truncate/tail/parser-version fallback을 구현하고 같은 공식 fixture로 cold 1회/warm 30회를 다시 측정하여 p95 ≤1,000 ms와 peak RSS ≤256 MiB를 모두 만족해야 한다.
+`PERF-001`은 해소되었다. Codex adapter가 rollout을 UTF-8 byte 단위로 한 번만 훑는 streaming projection으로 바뀌었고, 지원하지 않는 record는 payload를 materialize하지 않으며, 관측값을 두 번 만들던 구조와 hot loop의 LINQ 할당이 사라졌다. incremental checkpoint는 도입하지 않았으므로 truncate/tail/parser-version fallback 경로도 새로 생기지 않았다. 같은 공식 fixture로 cold 1회/warm 30회를 다시 측정해 warm p95 821.47 ms(목표 ≤1,000 ms), peak RSS max 89.02 MiB(목표 ≤256 MiB)를 모두 만족했다. 집계·dedupe·lineage 결과와 CLI 출력, 종료 코드는 바뀌지 않았고 `tests/fixtures/expected/`의 수동 oracle도 그대로다. 측정과 변경 내역은 [performance.md](performance.md)에 있다.
+
+남은 release 제한은 `SCOPE-001`(FR-04/FR-05의 workspace 필터 부재)이다.
 
 `SCOPE-001`과 `CONSISTENCY-001`의 완료 조건은 [review.md](review.md)에 있다.
 

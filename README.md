@@ -2,7 +2,7 @@
 
 Task Token Meter는 Claude Code와 Codex CLI의 로컬 JSONL 사용량을 root Turn 단위로 집계하는 Windows CLI다. prompt, message, tool argument 본문을 출력하거나 저장하지 않고 token usage, 귀속 상태, 품질, source fingerprint만 다룬다.
 
-> **Release acceptance: Fail.** 기능·내구성·패키징 검증은 완료했지만 `PERF-001`이 열려 있다. 공식 21 MiB/100,000행 fixture의 warm p95는 1,648.19 ms로 목표 1,000 ms를 넘는다. 이 수치를 개선하고 다시 측정하기 전에는 release 기준을 통과한 것으로 간주하지 않는다.
+> **Release acceptance: Fail.** 기능·내구성·패키징·성능 검증은 완료했다. `PERF-001`은 해소되어 공식 21 MiB/100,000행 fixture의 warm p95가 821.47 ms(목표 1,000 ms), peak RSS max가 89.02 MiB(목표 256 MiB)다. 남은 Fail 사유는 자동 session discovery가 workspace를 필터하지 않아 FR-04/FR-05가 Partial인 점(`SCOPE-001`) 하나이며, 그 전에는 release 기준을 통과한 것으로 간주하지 않는다.
 
 ## 지원 범위
 
@@ -172,7 +172,7 @@ Invoke-WebRequest `
 
 ## 알려진 제한
 
-- `PERF-001` (**release blocker**): 공식 21 MiB/100,000행 warm p95 1,648.19 ms. streaming projection 또는 검증된 incremental checkpoint를 구현하고 동일 fixture에서 p95 ≤1,000 ms, peak RSS ≤256 MiB를 모두 다시 통과해야 한다.
+- `PERF-001` (해소): Codex adapter를 streaming projection으로 바꿔 공식 21 MiB/100,000행 warm p95가 1,648.19 ms에서 821.47 ms로, peak RSS max가 122.55 MiB에서 89.02 MiB로 내려갔다. CLI `current` 한 번이 아직 source를 세 번 읽는 여지는 [performance.md](docs/validation/performance.md)에 남겼다.
 - `SCOPE-001` (Medium): 자동 discovery가 `--workspace`를 입력받지 않아 모든 configured source root의 session을 후보로 만든다. 완료 조건은 Provider metadata에서 canonical workspace identity를 얻고 discovery 단계에서 필터하며, 명시 session mismatch와 interactive 0/1/N 회귀 테스트를 추가하는 것이다. 그 전에는 `--provider`와 `--session`을 함께 쓴다.
 - `CONSISTENCY-001` (Medium): adapter parse 뒤 source fingerprint/extent를 별도 read하므로 그 사이 append가 발생하면 한 번의 sync에서 projection과 manifest 시점이 달라질 수 있다. 완료 조건은 동일한 immutable snapshot/extent로 parse와 hash를 만들거나 변경을 감지해 재시도하고 append/truncate/partial-tail 회귀 테스트를 통과하는 것이다.
 - 실제 Provider 개인 로그와 실제 설정에 Hook을 설치하는 smoke, 자동화 host 밖 actual interactive TTY는 Not Run이다.

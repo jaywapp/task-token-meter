@@ -86,13 +86,12 @@ public sealed class CodexUsageAdapter : IUsageAdapter
             return UnsupportedResult("source_not_found");
         }
 
-        var observations = new List<CodexUsageObservation>();
-        var rawRecords = new List<RawRecord>();
+        var records = new List<RawRecord>();
         var metadata = new Dictionary<string, SessionMetadata>(StringComparer.Ordinal);
         var diagnostics = new HashSet<string>(StringComparer.Ordinal);
         var tokenRecordCount = 0;
-        var supportedRecordCount = 0;
         long sequence = 0;
+        var scanned = default(CodexScannedLine);
 
         foreach (var path in paths)
         {
@@ -101,90 +100,70 @@ public sealed class CodexUsageAdapter : IUsageAdapter
                 continue;
             }
 
-            foreach (var line in File.ReadLines(path))
+            using var lines = new CodexJsonlLineReader(path);
+            while (lines.MoveNext())
             {
                 sequence++;
-                if (string.IsNullOrWhiteSpace(line))
+                var line = lines.Current;
+                if (IsBlank(line))
                 {
                     continue;
                 }
 
                 try
                 {
-                    using var document = JsonDocument.Parse(line);
-                    var root = document.RootElement;
-                    if (!TryGetString(root, "type", out var recordType) ||
-                        !root.TryGetProperty("payload", out var payload) ||
-                        payload.ValueKind != JsonValueKind.Object)
-                    {
-                        continue;
-                    }
-
-                    if (recordType == "session_meta")
-                    {
-                        ReadSessionMetadata(payload, metadata);
-                        continue;
-                    }
-
-                    if (recordType != "event_msg" ||
-                        !TryGetString(payload, "type", out var payloadType) ||
-                        payloadType != "token_usage_record")
-                    {
-                        continue;
-                    }
-
-                    tokenRecordCount++;
-                    if (!TryReadUsage(payload, "usage", out var delta) ||
-                        !TryReadUsage(payload, "turn_token_usage", out var turnSnapshot) ||
-                        !TryReadUsage(payload, "thread_token_usage", out var sessionSnapshot))
-                    {
-                        diagnostics.Add("session_only_usage_unsupported");
-                        continue;
-                    }
-
-                    supportedRecordCount++;
-                    var lineage = new CodexLineage(
-                        ReadString(payload, "session_id"),
-                        ReadString(payload, "root_turn_id"),
-                        ReadString(payload, "thread_id"),
-                        ReadString(payload, "turn_id"),
-                        null,
-                        null,
-                        ReadString(payload, "response_id"),
-                        ReadString(payload, "origin_execution_id"));
-                    var observedAt = ReadString(root, "timestamp");
-
-                    observations.Add(new CodexUsageObservation(
-                        CodexUsageKind.CallDelta,
-                        lineage,
-                        delta,
-                        sequence));
-                    observations.Add(new CodexUsageObservation(
-                        CodexUsageKind.TurnSnapshot,
-                        lineage,
-                        turnSnapshot,
-                        sequence));
-                    observations.Add(new CodexUsageObservation(
-                        CodexUsageKind.SessionSnapshot,
-                        lineage,
-                        sessionSnapshot,
-                        sequence));
-                    rawRecords.Add(new RawRecord(
-                        lineage,
-                        delta,
-                        turnSnapshot,
-                        sessionSnapshot,
-                        observedAt,
-                        sequence));
+                    CodexLineScanner.Scan(line, ref scanned);
                 }
                 catch (JsonException)
                 {
                     diagnostics.Add("malformed_json_line");
+                    continue;
                 }
+
+                if (scanned.Kind == CodexLineKind.SessionMeta)
+                {
+                    if (scanned.MetaThreadId is not null && scanned.SessionId is not null)
+                    {
+                        metadata[scanned.MetaThreadId] = new SessionMetadata(
+                            scanned.SessionId,
+                            scanned.MetaParentThreadId,
+                            scanned.MetaForkedFromThreadId);
+                    }
+
+                    continue;
+                }
+
+                if (scanned.Kind != CodexLineKind.TokenUsageRecord)
+                {
+                    continue;
+                }
+
+                tokenRecordCount++;
+                if (!scanned.HasCompleteUsage)
+                {
+                    diagnostics.Add("session_only_usage_unsupported");
+                    continue;
+                }
+
+                records.Add(new RawRecord(
+                    new CodexLineage(
+                        scanned.SessionId,
+                        scanned.RootTurnId,
+                        scanned.ThreadId,
+                        scanned.TurnId,
+                        null,
+                        null,
+                        scanned.ResponseId,
+                        scanned.OriginExecutionId),
+                    scanned.Delta,
+                    scanned.TurnSnapshot,
+                    scanned.SessionSnapshot,
+                    scanned.ObservedAt,
+                    sequence));
             }
         }
 
-        if (supportedRecordCount == 0)
+        if (records.Count == 0)
         {
             diagnostics.Add(tokenRecordCount > 0
                 ? "unsupported_record_shape"
@@ -192,18 +171,25 @@ public sealed class CodexUsageAdapter : IUsageAdapter
             return new CodexReadResult(
                 _capability,
                 [],
-                observations,
+                [],
                 [],
                 [],
                 diagnostics.Order(StringComparer.Ordinal).ToArray(),
                 false);
         }
 
-        var enrichedRecords = rawRecords
-            .Select(record => EnrichLineage(record, metadata))
-            .ToArray();
-        observations.Clear();
-        foreach (var record in enrichedRecords)
+        // A session_meta line may follow the records it describes, so lineage is completed only once
+        // the whole rollout has been read. With no metadata every lookup would miss, so skip it.
+        if (metadata.Count > 0)
+        {
+            for (var index = 0; index < records.Count; index++)
+            {
+                records[index] = EnrichLineage(records[index], metadata);
+            }
+        }
+
+        var observations = new List<CodexUsageObservation>(records.Count * 3);
+        foreach (var record in records)
         {
             observations.Add(new CodexUsageObservation(
                 CodexUsageKind.CallDelta,
@@ -223,17 +209,12 @@ public sealed class CodexUsageAdapter : IUsageAdapter
         }
 
         var unattributed = new List<CodexUnattributedObservation>();
-        var eligibleRecords = new List<RawRecord>();
+        var eligibleRecords = new List<RawRecord>(records.Count);
 
-        foreach (var record in enrichedRecords)
+        foreach (var record in records)
         {
             var recordDiagnostics = ValidateLineage(record.Lineage, metadata);
-            var sessionMetadata = record.Lineage.ThreadId is not null &&
-                                  metadata.TryGetValue(record.Lineage.ThreadId, out var found)
-                ? found
-                : null;
-
-            if (recordDiagnostics.Count > 0)
+            if (recordDiagnostics is not null)
             {
                 unattributed.Add(new CodexUnattributedObservation(
                     record.Lineage,
@@ -244,8 +225,10 @@ public sealed class CodexUsageAdapter : IUsageAdapter
                 continue;
             }
 
-            if (sessionMetadata?.ForkedFromThreadId is not null &&
-                record.Lineage.OriginExecutionId is null)
+            if (record.Lineage.OriginExecutionId is null &&
+                record.Lineage.ThreadId is not null &&
+                metadata.TryGetValue(record.Lineage.ThreadId, out var sessionMetadata) &&
+                sessionMetadata.ForkedFromThreadId is not null)
             {
                 const string diagnostic = "fork_replay_ambiguous";
                 unattributed.Add(new CodexUnattributedObservation(
@@ -262,13 +245,15 @@ public sealed class CodexUsageAdapter : IUsageAdapter
 
         var executionProjections = BuildExecutionProjections(eligibleRecords);
         var excluded = ExcludeForkReplays(executionProjections, metadata);
-        var included = executionProjections
-            .Where(item => !excluded.Any(excludedItem =>
-                excludedItem.ExecutionId == item.ExecutionId &&
-                excludedItem.SessionId == item.RootSessionId &&
-                excludedItem.ThreadId == item.ThreadId &&
-                excludedItem.TurnId == item.TurnId))
-            .ToArray();
+        var included = excluded.Count == 0
+            ? executionProjections
+            : executionProjections
+                .Where(item => !excluded.Any(excludedItem =>
+                    excludedItem.ExecutionId == item.ExecutionId &&
+                    excludedItem.SessionId == item.RootSessionId &&
+                    excludedItem.ThreadId == item.ThreadId &&
+                    excludedItem.TurnId == item.TurnId))
+                .ToArray();
         if (excluded.Count > 0)
         {
             diagnostics.Add("fork_replay_origin_excluded");
@@ -454,26 +439,54 @@ public sealed class CodexUsageAdapter : IUsageAdapter
     }
 
     private static ExecutionProjection[] BuildExecutionProjections(
-        IEnumerable<RawRecord> records)
+        List<RawRecord> records)
     {
-        return records
-            .GroupBy(static record => (record.Lineage.ThreadId!, record.Lineage.TurnId!), ExecutionKeyComparer.Instance)
-            .Select(BuildExecutionProjection)
-            .OrderBy(static projection => projection.Sequence)
-            .ToArray();
+        if (records.Count == 0)
+        {
+            return [];
+        }
+
+        // Grouped by hand so the whole rollout does not pass through LINQ's grouping allocations.
+        // Groups keep first-appearance order, which is what GroupBy produced.
+        var groupIndexByKey = new Dictionary<(string ThreadId, string TurnId), int>(ExecutionKeyComparer.Instance);
+        var groups = new List<List<RawRecord>>();
+        foreach (var record in records)
+        {
+            var key = (record.Lineage.ThreadId!, record.Lineage.TurnId!);
+            if (!groupIndexByKey.TryGetValue(key, out var groupIndex))
+            {
+                groupIndex = groups.Count;
+                groupIndexByKey.Add(key, groupIndex);
+                groups.Add([]);
+            }
+
+            groups[groupIndex].Add(record);
+        }
+
+        var projections = new ExecutionProjection[groups.Count];
+        var sequences = new long[groups.Count];
+        for (var index = 0; index < groups.Count; index++)
+        {
+            projections[index] = BuildExecutionProjection(groups[index]);
+            sequences[index] = projections[index].Sequence;
+        }
+
+        // Every projection carries the sequence of the last line in its group, and line sequences are
+        // unique, so ordering by sequence is total and needs no stable-sort tiebreak.
+        Array.Sort(sequences, projections);
+        return projections;
     }
 
-    private static ExecutionProjection BuildExecutionProjection(IGrouping<(string ThreadId, string TurnId), RawRecord> group)
+    private static ExecutionProjection BuildExecutionProjection(List<RawRecord> group)
     {
-        var ordered = group.OrderBy(static record => record.Sequence).ToArray();
-        var final = ordered[^1];
+        // Records are appended while the rollout is read, so a group is already ascending by sequence.
+        var final = group[^1];
         var diagnostics = new HashSet<string>(StringComparer.Ordinal);
-        var snapshotAssessment = AssessUsage(final.TurnSnapshot);
-        diagnostics.UnionWith(snapshotAssessment.Diagnostics);
+        var quality = AssessUsage(final.TurnSnapshot, diagnostics);
 
-        var deltasByResponse = new Dictionary<string, RawRecord>(StringComparer.Ordinal);
+        var deltasByResponse = new Dictionary<string, CodexNativeUsage>(StringComparer.Ordinal);
         var allDeltasHaveIdentity = true;
-        foreach (var record in ordered)
+        foreach (var record in group)
         {
             if (record.Lineage.ResponseId is null)
             {
@@ -481,10 +494,9 @@ public sealed class CodexUsageAdapter : IUsageAdapter
                 continue;
             }
 
-            deltasByResponse[record.Lineage.ResponseId] = record;
+            deltasByResponse[record.Lineage.ResponseId] = record.Delta;
         }
 
-        var quality = snapshotAssessment.Quality;
         int? apiCallCount = allDeltasHaveIdentity ? deltasByResponse.Count : null;
         long? maxObservedInput = null;
         if (!allDeltasHaveIdentity)
@@ -493,19 +505,19 @@ public sealed class CodexUsageAdapter : IUsageAdapter
             quality = MoreSevere(quality, MeasurementQuality.Partial);
         }
 
-        var validDeltas = new List<CodexNativeUsage>();
-        foreach (var deltaRecord in deltasByResponse.Values)
+        var validDeltas = new List<CodexNativeUsage>(deltasByResponse.Count);
+        foreach (var delta in deltasByResponse.Values)
         {
-            var deltaAssessment = AssessUsage(deltaRecord.Delta);
-            if (deltaAssessment.Quality == MeasurementQuality.Invalid)
+            // A call delta only contributes its verdict here; its own diagnostics were never surfaced.
+            if (AssessUsage(delta, null) == MeasurementQuality.Invalid)
             {
                 diagnostics.Add("invalid_call_delta");
                 quality = MoreSevere(quality, MeasurementQuality.Partial);
                 continue;
             }
 
-            validDeltas.Add(deltaRecord.Delta);
-            if (deltaRecord.Delta.InputTokens is { } input &&
+            validDeltas.Add(delta);
+            if (delta.InputTokens is { } input &&
                 (maxObservedInput is null || input > maxObservedInput))
             {
                 maxObservedInput = input;
@@ -577,47 +589,59 @@ public sealed class CodexUsageAdapter : IUsageAdapter
         return excluded;
     }
 
-    private static UsageAssessment AssessUsage(CodexNativeUsage usage)
+    /// <summary>
+    /// Grades one usage object and, when <paramref name="diagnostics"/> is supplied, records why.
+    /// </summary>
+    /// <remarks>
+    /// Called once per call delta, so the previous array plus <see cref="List{T}"/> per invocation was
+    /// pure overhead for the common clean record. The checks, their order and their verdicts are
+    /// unchanged; only the collection of the reasons became optional.
+    /// </remarks>
+    private static MeasurementQuality AssessUsage(CodexNativeUsage usage, ICollection<string>? diagnostics)
     {
-        var diagnostics = new List<string>();
-        var values = new long?[]
+        var invalid = false;
+        if (IsNegative(usage.InputTokens) ||
+            IsNegative(usage.CachedInputTokens) ||
+            IsNegative(usage.OutputTokens) ||
+            IsNegative(usage.ReasoningOutputTokens) ||
+            IsNegative(usage.TotalTokens) ||
+            IsNegative(usage.CacheWriteInputTokens))
         {
-            usage.InputTokens,
-            usage.CachedInputTokens,
-            usage.OutputTokens,
-            usage.ReasoningOutputTokens,
-            usage.TotalTokens,
-            usage.CacheWriteInputTokens
-        };
-
-        if (values.Any(static value => value < 0))
-        {
-            diagnostics.Add("negative_token_count");
+            diagnostics?.Add("negative_token_count");
+            invalid = true;
         }
 
         if (usage.IsTotalOnly)
         {
-            diagnostics.Add("total_only_semantics_unknown");
-            return new UsageAssessment(MeasurementQuality.Provisional, diagnostics);
+            diagnostics?.Add("total_only_semantics_unknown");
+            return MeasurementQuality.Provisional;
         }
 
-        if (values.Any(static value => value is null))
+        if (usage.InputTokens is null ||
+            usage.CachedInputTokens is null ||
+            usage.OutputTokens is null ||
+            usage.ReasoningOutputTokens is null ||
+            usage.TotalTokens is null ||
+            usage.CacheWriteInputTokens is null)
         {
-            diagnostics.Add("incomplete_usage_metrics");
+            diagnostics?.Add("incomplete_usage_metrics");
+            invalid = true;
         }
 
         if (usage.InputTokens is { } input &&
             usage.CachedInputTokens is { } cached &&
             cached > input)
         {
-            diagnostics.Add("cached_input_exceeds_input");
+            diagnostics?.Add("cached_input_exceeds_input");
+            invalid = true;
         }
 
         if (usage.OutputTokens is { } output &&
             usage.ReasoningOutputTokens is { } reasoning &&
             reasoning > output)
         {
-            diagnostics.Add("reasoning_output_exceeds_output");
+            diagnostics?.Add("reasoning_output_exceeds_output");
+            invalid = true;
         }
 
         if (usage.InputTokens is { } totalInput &&
@@ -628,57 +652,83 @@ public sealed class CodexUsageAdapter : IUsageAdapter
             {
                 if (checked(totalInput + totalOutput) != total)
                 {
-                    diagnostics.Add("total_tokens_mismatch");
+                    diagnostics?.Add("total_tokens_mismatch");
+                    invalid = true;
                 }
             }
             catch (OverflowException)
             {
-                diagnostics.Add("token_count_overflow");
+                diagnostics?.Add("token_count_overflow");
+                invalid = true;
             }
         }
 
-        if (diagnostics.Count > 0)
+        if (invalid)
         {
-            return new UsageAssessment(MeasurementQuality.Invalid, diagnostics);
+            return MeasurementQuality.Invalid;
         }
 
         if (usage.CacheWriteInputTokens > 0)
         {
-            diagnostics.Add("cache_write_semantics_unknown");
-            return new UsageAssessment(MeasurementQuality.Provisional, diagnostics);
+            diagnostics?.Add("cache_write_semantics_unknown");
+            return MeasurementQuality.Provisional;
         }
 
-        return new UsageAssessment(MeasurementQuality.Observed, diagnostics);
+        return MeasurementQuality.Observed;
     }
 
-    private static CodexNativeUsage SumUsages(IEnumerable<CodexNativeUsage> usages)
+    private static bool IsNegative(long? value) => value is { } number && number < 0;
+
+    private static CodexNativeUsage SumUsages(IEnumerable<CodexNativeUsage> usages) =>
+        SumUsages(usages as IReadOnlyList<CodexNativeUsage> ?? usages.ToArray());
+
+    /// <summary>
+    /// Sums each metric, keeping the rule that one missing value makes the whole metric unknown.
+    /// </summary>
+    /// <remarks>
+    /// The missing values are located before anything is added, because the previous per-field
+    /// implementation also refused to sum a metric it had already rejected. Summing first would turn
+    /// an unknown metric into an <see cref="OverflowException"/>.
+    /// </remarks>
+    private static CodexNativeUsage SumUsages(IReadOnlyList<CodexNativeUsage> usages)
     {
-        var items = usages.ToArray();
+        if (usages.Count == 0)
+        {
+            return new CodexNativeUsage();
+        }
+
+        bool hasInput = true, hasCached = true, hasOutput = true;
+        bool hasReasoning = true, hasTotal = true, hasCacheWrite = true;
+        for (var index = 0; index < usages.Count; index++)
+        {
+            var usage = usages[index];
+            hasInput &= usage.InputTokens is not null;
+            hasCached &= usage.CachedInputTokens is not null;
+            hasOutput &= usage.OutputTokens is not null;
+            hasReasoning &= usage.ReasoningOutputTokens is not null;
+            hasTotal &= usage.TotalTokens is not null;
+            hasCacheWrite &= usage.CacheWriteInputTokens is not null;
+        }
+
+        long input = 0, cached = 0, output = 0, reasoning = 0, total = 0, cacheWrite = 0;
+        for (var index = 0; index < usages.Count; index++)
+        {
+            var usage = usages[index];
+            if (hasInput) input = checked(input + usage.InputTokens!.Value);
+            if (hasCached) cached = checked(cached + usage.CachedInputTokens!.Value);
+            if (hasOutput) output = checked(output + usage.OutputTokens!.Value);
+            if (hasReasoning) reasoning = checked(reasoning + usage.ReasoningOutputTokens!.Value);
+            if (hasTotal) total = checked(total + usage.TotalTokens!.Value);
+            if (hasCacheWrite) cacheWrite = checked(cacheWrite + usage.CacheWriteInputTokens!.Value);
+        }
+
         return new CodexNativeUsage(
-            SumField(items, static usage => usage.InputTokens),
-            SumField(items, static usage => usage.CachedInputTokens),
-            SumField(items, static usage => usage.OutputTokens),
-            SumField(items, static usage => usage.ReasoningOutputTokens),
-            SumField(items, static usage => usage.TotalTokens),
-            SumField(items, static usage => usage.CacheWriteInputTokens));
-    }
-
-    private static long? SumField(
-        CodexNativeUsage[] usages,
-        Func<CodexNativeUsage, long?> selector)
-    {
-        if (usages.Length == 0 || usages.Any(usage => selector(usage) is null))
-        {
-            return null;
-        }
-
-        long total = 0;
-        foreach (var usage in usages)
-        {
-            total = checked(total + selector(usage)!.Value);
-        }
-
-        return total;
+            hasInput ? input : null,
+            hasCached ? cached : null,
+            hasOutput ? output : null,
+            hasReasoning ? reasoning : null,
+            hasTotal ? total : null,
+            hasCacheWrite ? cacheWrite : null);
     }
 
     private static int? SumNullable(IEnumerable<int?> values)
@@ -740,29 +790,36 @@ public sealed class CodexUsageAdapter : IUsageAdapter
         };
     }
 
-    private static List<string> ValidateLineage(
+    /// <summary>
+    /// Returns the lineage problems of one record, or <see langword="null"/> when it has none.
+    /// </summary>
+    /// <remarks>
+    /// Runs once per usage record, and a well formed rollout produces no problems at all, so the list
+    /// is only created when there is something to put in it.
+    /// </remarks>
+    private static List<string>? ValidateLineage(
         CodexLineage lineage,
         IReadOnlyDictionary<string, SessionMetadata> metadata)
     {
-        var diagnostics = new List<string>();
+        List<string>? diagnostics = null;
         if (lineage.RootSessionId is null)
         {
-            diagnostics.Add("missing_root_session_id");
+            (diagnostics ??= []).Add("missing_root_session_id");
         }
 
         if (lineage.RootTurnId is null)
         {
-            diagnostics.Add("missing_root_turn_id");
+            (diagnostics ??= []).Add("missing_root_turn_id");
         }
 
         if (lineage.ThreadId is null)
         {
-            diagnostics.Add("missing_thread_id");
+            (diagnostics ??= []).Add("missing_thread_id");
         }
 
         if (lineage.TurnId is null)
         {
-            diagnostics.Add("missing_turn_id");
+            (diagnostics ??= []).Add("missing_turn_id");
         }
 
         if (lineage.ThreadId is not null &&
@@ -770,27 +827,23 @@ public sealed class CodexUsageAdapter : IUsageAdapter
             lineage.RootSessionId is not null &&
             !string.Equals(sessionMetadata.RootSessionId, lineage.RootSessionId, StringComparison.Ordinal))
         {
-            diagnostics.Add("root_session_lineage_mismatch");
+            (diagnostics ??= []).Add("root_session_lineage_mismatch");
         }
 
         return diagnostics;
     }
 
-    private static void ReadSessionMetadata(
-        JsonElement payload,
-        IDictionary<string, SessionMetadata> metadata)
+    private static bool IsBlank(ReadOnlySpan<byte> line)
     {
-        var threadId = ReadString(payload, "id");
-        var rootSessionId = ReadString(payload, "session_id");
-        if (threadId is null || rootSessionId is null)
+        foreach (var value in line)
         {
-            return;
+            if (value is not ((byte)' ' or (byte)'\t' or (byte)'\n' or (byte)'\v' or (byte)'\f' or (byte)'\r'))
+            {
+                return false;
+            }
         }
 
-        metadata[threadId] = new SessionMetadata(
-            rootSessionId,
-            ReadString(payload, "parent_thread_id"),
-            ReadString(payload, "forked_from_id"));
+        return true;
     }
 
     private static bool TryReadUsage(
@@ -835,9 +888,6 @@ public sealed class CodexUsageAdapter : IUsageAdapter
         value = number;
         return true;
     }
-
-    private static string? ReadString(JsonElement element, string propertyName) =>
-        TryGetString(element, propertyName, out var value) ? value : null;
 
     private static bool TryGetString(JsonElement element, string propertyName, out string value)
     {
@@ -932,17 +982,20 @@ public sealed class CodexUsageAdapter : IUsageAdapter
         string? ParentThreadId,
         string? ForkedFromThreadId);
 
-    private sealed record RawRecord(
+    /// <summary>
+    /// One supported usage record, buffered until the whole rollout has been read.
+    /// </summary>
+    /// <remarks>
+    /// A struct because a large rollout buffers one of these per record and none of them outlive the
+    /// projection, so there is nothing for a reference type to share.
+    /// </remarks>
+    private readonly record struct RawRecord(
         CodexLineage Lineage,
         CodexNativeUsage Delta,
         CodexNativeUsage TurnSnapshot,
         CodexNativeUsage SessionSnapshot,
         string? ObservedAt,
         long Sequence);
-
-    private sealed record UsageAssessment(
-        MeasurementQuality Quality,
-        IReadOnlyList<string> Diagnostics);
 
     private sealed record ExecutionProjection(
         string RootSessionId,

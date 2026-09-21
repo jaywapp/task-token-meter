@@ -1,6 +1,6 @@
 # Plan — 구현 작업 계획
 
-작성일: 2026-09-19 · 갱신일: 2026-09-20 · 상태: TASK-014 교차 리뷰 완료, release acceptance Fail (PERF-001)
+작성일: 2026-09-19 · 갱신일: 2026-09-21 · 상태: TASK-014 교차 리뷰 완료, PERF-001 해소, release acceptance Fail (SCOPE-001)
 
 ## 계획의 기준
 
@@ -489,6 +489,6 @@ Medium
 
 최종 패키지는 win-x64 self-contained로 생성했고 native SQLite, clean runtime, wrapper, Windows PowerShell 5.1 smoke를 통과했다. 실제 개인 Provider 로그 전체 smoke와 실제 Provider 설정 Hook 설치는 Not Run이다.
 
-전체 release acceptance는 **Fail**이다. `PERF-001`의 공식 warm p95 1,648.19 ms가 1,000 ms 기준을 넘는다. 자동 session discovery의 workspace 범위 `SCOPE-001`과 parse/fingerprint 시점 `CONSISTENCY-001`도 Medium으로 열려 있다. 상세 근거와 완료 조건은 [acceptance](../validation/acceptance.md), [review](../validation/review.md), [performance](../validation/performance.md)에 있다.
+전체 release acceptance는 **Fail**이다. `PERF-001`은 2026-09-21 Codex adapter streaming projection으로 해소했고 공식 warm p95는 821.47 ms다. 남은 항목은 자동 session discovery의 workspace 범위 `SCOPE-001`과 parse/fingerprint 시점 `CONSISTENCY-001`이며 둘 다 Medium으로 열려 있다. 상세 근거와 완료 조건은 [acceptance](../validation/acceptance.md), [review](../validation/review.md), [performance](../validation/performance.md)에 있다.
 
 User-confirm 원문과 ideas 문서는 TASK-014에서 수정하지 않았다.
