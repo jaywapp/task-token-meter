@@ -39,10 +39,19 @@ GitHub Release의 바이너리를 각 채널이 다시 빌드하지 않는다. R
 - `packaging/Test-Installer.ps1`: 설치, 업데이트, Hook 경로 유지, 실패 복구, 제거를 임시 디렉터리에서 검증(22개 검사)
 - `.github/workflows/release.yml`: 태그 검증, 빌드·테스트, 패키징, PowerShell 5.1 smoke, 설치기 테스트, 해시 재검증, artifact attestation, draft release 생성
 
+### Phase 2·3 준비 항목 (2026-09-21)
+
+- `npm/task-token-meter`(launcher)와 `npm/platform-win32-x64`(win32-x64 바이너리) 패키지 소스
+- `packaging/Build-NpmPackages.ps1`: release 패키지로 두 npm 패키지를 만들고 버전·내용·위생 검사 후 `npm pack`
+- `packaging/Test-NpmPackage.ps1`: 두 tarball을 임시 프로젝트에 설치해 실행·버전·종료 코드 검증(8개 검사)
+- `.github/workflows/npm-publish.yml`: release 게시 시 asset 해시 검증 → 패키지 빌드·테스트 → OIDC trusted publishing으로 provenance publish
+- `packaging/winget/*.template.yaml`과 `packaging/Build-WingetManifest.ps1`: 안정판 manifest 3종 생성(`winget validate` 통과 확인)
+- Hook 경로 해석에 WinGet portable 레이아웃(`WinGet\Links`) 지원 추가
+
 ### 남은 미구현 항목
 
-- npm launcher 및 플랫폼 패키지
-- WinGet manifest
+- npm trusted publisher 등록(npmjs.com 계정 작업)
+- WinGet community repository 제출(안정판 이후)
 - Windows 코드 서명
 
 `.github/workflows/ci.yml`은 restore, build, test를 계속 담당하고 release asset은 만들지 않는다.
@@ -253,7 +262,9 @@ npm install -g task-token-meter@latest
 
 postinstall에서 임의 URL의 바이너리를 다운로드하지 않는다. lifecycle script 비활성화, proxy, offline cache와 package-manager별 신뢰 정책 때문에 설치 성공 여부가 달라질 수 있기 때문이다.
 
-npm publish는 장기 `NPM_TOKEN` 대신 GitHub Actions OIDC trusted publishing을 사용한다. public package는 provenance를 활성화한다.
+빌드와 검증은 `packaging/Build-NpmPackages.ps1`과 `packaging/Test-NpmPackage.ps1`이 담당하고, 게시는 `.github/workflows/npm-publish.yml`이 release 게시 이벤트에서 수행한다. workflow는 release asset을 내려받아 `.sha256`과 대조한 뒤 패키지를 만들고, 설치·실행 테스트를 통과한 다음에만 publish한다.
+
+npm publish는 장기 `NPM_TOKEN` 대신 GitHub Actions OIDC trusted publishing을 사용한다. public package는 provenance를 활성화한다. 최초 게시 전에 npmjs.com에서 두 패키지에 대한 trusted publisher(저장소와 workflow 파일 지정)를 등록해야 한다.
 
 - [npm trusted publishing 문서](https://docs.npmjs.com/trusted-publishers/)
 
@@ -269,7 +280,9 @@ winget upgrade Jaywapp.TaskTokenMeter
 winget uninstall Jaywapp.TaskTokenMeter
 ```
 
-manifest는 GitHub Release의 고정 asset URL과 SHA-256을 참조한다. 제출 전 Windows Sandbox에서 install, upgrade, uninstall과 PATH 정리를 검증한다.
+manifest는 GitHub Release의 고정 asset URL과 SHA-256을 참조한다. `packaging/Build-WingetManifest.ps1`이 세 manifest를 생성하며, prerelease 버전은 거부한다. 제출 전 Windows Sandbox에서 install, upgrade, uninstall과 PATH 정리를 검증한다.
+
+WinGet portable 설치는 업그레이드할 때 package 디렉터리를 교체하므로, Hook은 `WinGet\Links`의 고정 alias를 기록한다. Sandbox 검증에는 업그레이드 후 `hook status`가 `executableAvailable: true`를 유지하는지도 포함한다.
 
 - [WinGet manifest 문서](https://learn.microsoft.com/en-us/windows/package-manager/package/manifest)
 - [WinGet 제출 절차](https://learn.microsoft.com/en-us/windows/package-manager/package/repository)
