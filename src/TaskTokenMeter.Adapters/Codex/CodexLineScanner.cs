@@ -14,7 +14,8 @@ internal enum CodexRootType
 {
     Other,
     SessionMeta,
-    EventMessage
+    EventMessage,
+    TokenUsageRecord
 }
 
 /// <summary>
@@ -130,6 +131,15 @@ internal static class CodexLineScanner
         if (recordType == CodexRootType.SessionMeta)
         {
             result.Kind = CodexLineKind.SessionMeta;
+            return;
+        }
+
+        // Codex CLI 0.153.4 rollouts write token_usage_record as the root type directly, with the
+        // session/turn/usage fields as siblings under `payload` — not nested inside an event_msg
+        // envelope. The event_msg-wrapped form below is kept for any source that still uses it.
+        if (recordType == CodexRootType.TokenUsageRecord)
+        {
+            result.Kind = CodexLineKind.TokenUsageRecord;
             return;
         }
 
@@ -339,7 +349,12 @@ internal static class CodexLineScanner
             return CodexRootType.EventMessage;
         }
 
-        return reader.ValueTextEquals("session_meta"u8) ? CodexRootType.SessionMeta : CodexRootType.Other;
+        if (reader.ValueTextEquals("session_meta"u8))
+        {
+            return CodexRootType.SessionMeta;
+        }
+
+        return reader.ValueTextEquals("token_usage_record"u8) ? CodexRootType.TokenUsageRecord : CodexRootType.Other;
     }
 
     private static bool IsText(ref Utf8JsonReader reader, ReadOnlySpan<byte> expected)

@@ -45,7 +45,9 @@ public sealed class AdapterCliRuntime : ICliRuntime
 
     public IReadOnlyList<SessionCandidate> Discover(string? provider, string? sessionId)
     {
-        var turns = ReadAll().ToArray();
+        // An explicit provider scopes which adapter's sources are read at all: a schema problem in the
+        // other provider's real logs must not block a query that never asked about that provider.
+        var turns = ReadAll(provider is null ? null : ToProvider(provider)).ToArray();
         return turns
             .Where(item => provider is null || string.Equals(ProviderName(item.TurnKey.Provider), provider, StringComparison.OrdinalIgnoreCase))
             .Select(static item => new SessionCandidate(item.TurnKey.Provider, item.TurnKey.RootSessionId, null, item.ObservedAt))
@@ -256,13 +258,19 @@ public sealed class AdapterCliRuntime : ICliRuntime
             canonicalWorkspace, StorageMode.Global, globalDataRoot, cancellationToken).ConfigureAwait(false)).ActiveRoute;
     }
 
-    private IEnumerable<TurnProjection> ReadSession(SessionCandidate session) => ReadAll().Where(
+    private IEnumerable<TurnProjection> ReadSession(SessionCandidate session) => ReadAll(session.Provider).Where(
         item => item.TurnKey.Provider == session.Provider && item.TurnKey.RootSessionId == session.SessionId);
 
-    private IEnumerable<TurnProjection> ReadAll()
+    /// <summary>
+    /// Reads projected turns from the configured adapters. When <paramref name="providerFilter"/> is set,
+    /// every other provider's adapter is skipped entirely, so a real-log schema problem in one provider's
+    /// sources never blocks a query that only asked about the other provider.
+    /// </summary>
+    private IEnumerable<TurnProjection> ReadAll(ProviderKind? providerFilter = null)
     {
         foreach (var pair in adapters)
         {
+            if (providerFilter is not null && pair.Key != providerFilter.Value) continue;
             var configured = GetSourceRoots(pair.Key);
             var paths = ExpandSourceFiles(configured.Paths);
             if (paths.Length == 0) continue;
