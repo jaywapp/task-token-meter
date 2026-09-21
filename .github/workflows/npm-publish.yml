@@ -84,8 +84,16 @@ jobs:
         shell: pwsh
         run: ./packaging/Test-NpmPackage.ps1 -PackRoot '${{ steps.packages.outputs.outputRoot }}' -Version '${{ steps.release.outputs.version }}'
 
+      - name: Report that publishing is disabled
+        if: vars.NPM_PUBLISH_ENABLED != 'true'
+        shell: pwsh
+        run: |
+          Write-Host '::notice::npm publishing is disabled. The packages were built and tested but not published.'
+          Write-Host 'Register the trusted publisher for task-token-meter and @jaywapp/task-token-meter-win32-x64 on npmjs.com,'
+          Write-Host 'then set the repository variable NPM_PUBLISH_ENABLED to true.'
+
       - name: Publish to npm
-        if: github.event_name == 'release' || inputs.dry_run == false
+        if: vars.NPM_PUBLISH_ENABLED == 'true' && (github.event_name == 'release' || inputs.dry_run == false)
         shell: pwsh
         run: |
           $outputRoot = '${{ steps.packages.outputs.outputRoot }}'
