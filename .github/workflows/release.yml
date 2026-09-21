@@ -94,9 +94,15 @@ jobs:
           powershell.exe -NoProfile -ExecutionPolicy Bypass -File packaging/Smoke-PowerShell51.ps1 -Executable $executable
           if ($LASTEXITCODE -ne 0) { throw 'The Windows PowerShell 5.1 smoke failed.' }
 
-      - name: Installer tests
+      - name: Installer tests (PowerShell 7)
         shell: pwsh
         run: ./packaging/Test-Installer.ps1 -ArchivePath '${{ steps.package.outputs.package }}'
+
+      - name: Installer tests (Windows PowerShell 5.1)
+        shell: pwsh
+        run: |
+          powershell.exe -NoProfile -ExecutionPolicy Bypass -File packaging/Test-Installer.ps1 -ArchivePath '${{ steps.package.outputs.package }}'
+          if ($LASTEXITCODE -ne 0) { throw 'The Windows PowerShell 5.1 installer tests failed.' }
 
       - name: Verify package hashes
         shell: pwsh

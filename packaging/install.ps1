@@ -50,9 +50,11 @@ function Assert-SupportedPlatform {
     if ($PSVersionTable.PSVersion.Major -lt 5) {
         throw "Windows PowerShell 5.1 or later is required."
     }
-    $isWindows = $true
-    if ($PSVersionTable.PSEdition -eq "Core") { $isWindows = [System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform([System.Runtime.InteropServices.OSPlatform]::Windows) }
-    if (-not $isWindows) {
+    # $IsWindows is a read-only automatic variable in PowerShell 7 and variable names are case
+    # insensitive, so this local must not be called $isWindows.
+    $runningOnWindows = $true
+    if ($PSVersionTable.PSEdition -eq "Core") { $runningOnWindows = [System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform([System.Runtime.InteropServices.OSPlatform]::Windows) }
+    if (-not $runningOnWindows) {
         throw "Task Token Meter supports Windows only. Nothing was changed."
     }
     if (-not [Environment]::Is64BitOperatingSystem) {
