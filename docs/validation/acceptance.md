@@ -2,7 +2,7 @@
 
 ## 판정
 
-전체 판정은 **Fail**이다. TASK-014 High 수정 후 Release 전체 테스트는 134/134(단위 54, 통합 80) 통과했고, `PERF-001` 최적화 뒤 재실행에서는 147/147(단위 67, 통합 80) 통과했다. 두 Provider의 합성 전체 흐름, 저장·migration, Hook, 패키징, RSS와 Hook latency는 검증되었다.
+전체 판정은 **Fail**이다. TASK-014 High 수정 후 Release 전체 테스트는 134/134(단위 54, 통합 80) 통과했고, `PERF-001` 최적화 뒤 재실행에서는 147/147(단위 67, 통합 80) 통과했다. 2026-09-22 실제 Provider 로그 검증(H-004/H-005, [review.md](review.md)) 이후에는 162/162(단위 77, 통합 85) 통과한다. 두 Provider의 합성 전체 흐름, 저장·migration, Hook, 패키징, RSS와 Hook latency는 검증되었다.
 
 `PERF-001`은 **해소**되었다. Codex adapter를 streaming projection으로 바꿔 공식 21 MiB/100,000행 조회의 warm p95가 1,648.19 ms에서 821.47 ms로 내려가 1초 목표를 만족한다([performance.md](performance.md)). 남은 Fail 사유는 자동 session discovery가 workspace를 필터하지 않아 FR-04/FR-05가 Partial인 점 하나다.
 
@@ -53,13 +53,13 @@
 
 | 대상 | 설치/기준 버전 | 구현 지원 | 이번 검증 | 제한 |
 |---|---|---|---|---|
-| Claude Code | 2.1.278 | transcript assistant usage / Stop, SubagentStop, StopFailure | 합성 E2E Pass; version read-only Pass | 개인 transcript와 실제 Hook 설치 Not Run |
-| Codex CLI | 0.153.4 | token_usage_record delta/turn/session / Stop, SubagentStop, Interrupt | 합성 E2E Pass; version read-only Pass | 실제 사용자 rollout과 Hook 설치 Not Run |
+| Claude Code | 2.1.278 | transcript assistant usage / Stop, SubagentStop, StopFailure | 합성 E2E Pass; 2026-09-22 실제 개인 transcript·Hook 설치 Pass(H-004 수정 후) | — |
+| Codex CLI | 0.153.4 | token_usage_record delta/turn/session / Stop, SubagentStop, Interrupt | 합성 E2E Pass; 2026-09-22 실제 rollout 776개·Hook 설치 Pass(H-005 수정 후) | — |
 | .NET | SDK 10.0.400, runtime 10.0.11 | net10.0 / win-x64 self-contained | locked restore/build/publish Pass | 다른 RID Not Run |
 | Windows PowerShell | 5.1.26100.9444 | redirect/pipe wrapper | actual process smoke Pass | actual interactive TTY Not Run |
 | PowerShell | 7.6.5 | build/validation scripts | Pass | 없음 |
 
-지원 버전과 다른 Provider에는 Hook을 설치하지 않으며 schema는 exit code 5로 거부한다. 실제 Provider 개인 데이터 smoke는 원문·설정 접근이 금지된 범위에서 **Not Run**이므로 실제 개인 로그 전체 지원 완료를 주장하지 않는다.
+지원 버전과 다른 Provider에는 Hook을 설치하지 않으며 schema는 exit code 5로 거부한다. 2026-09-22 이 머신에서 실제 Claude Code·Codex 설정에 Hook을 설치하고 실제 transcript/rollout으로 조회해 두 건의 High(`H-004`, `H-005`, [review.md](review.md))를 발견·수정했다. 실제 개인 로그 검증은 이 한 대의 머신 기준이며, 다른 workspace 구성·오래된 세션 형식까지 전부 확인한 것은 아니다.
 
 ## 선택 환경 행렬
 

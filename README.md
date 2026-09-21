@@ -9,8 +9,8 @@ Task Token Meter는 Claude Code와 Codex CLI의 로컬 JSONL 사용량을 root T
 | 대상 | 지원 기준 | 검증 상태 |
 |---|---|---|
 | Windows | win-x64 self-contained package | Windows 10.0.26200에서 Pass |
-| Claude Code | 2.1.278 transcript, Stop/SubagentStop/StopFailure Hook | 합성 E2E Pass; 개인 transcript와 실제 Hook 설치 Not Run |
-| Codex CLI | 0.153.4 rollout, Stop/SubagentStop/Interrupt Hook | 합성 E2E Pass; 실제 사용자 rollout과 Hook 설치 Not Run |
+| Claude Code | 2.1.278 transcript, Stop/SubagentStop/StopFailure Hook | 합성 E2E Pass; 2026-09-22 실제 transcript·Hook 설치 Pass |
+| Codex CLI | 0.153.4 rollout, Stop/SubagentStop/Interrupt Hook | 합성 E2E Pass; 2026-09-22 실제 rollout·Hook 설치 Pass |
 | PowerShell | Windows PowerShell 5.1, PowerShell 7 | 5.1 pipe/redirect/JSON smoke와 7.x build Pass |
 | .NET | package 실행에는 별도 runtime 불필요 | SDK 10.0.400/runtime 10.0.11로 build 검증 |
 
@@ -173,9 +173,10 @@ Invoke-WebRequest `
 ## 알려진 제한
 
 - `PERF-001` (해소): Codex adapter를 streaming projection으로 바꿔 공식 21 MiB/100,000행 warm p95가 1,648.19 ms에서 821.47 ms로, peak RSS max가 122.55 MiB에서 89.02 MiB로 내려갔다. CLI `current` 한 번이 아직 source를 세 번 읽는 여지는 [performance.md](docs/validation/performance.md)에 남겼다.
+- `H-004`/`H-005` (해소, 2026-09-22): 실제 머신에 설치해 실제 Provider 로그로 처음 검증하면서 두 건을 발견했다 — `--provider`가 다른 Provider의 소스 읽기를 막지 못해 한쪽 Provider의 실제 로그 문제가 다른 쪽 조회까지 막았고(H-004), Codex CLI 0.153.4의 실제 rollout이 쓰는 `token_usage_record`의 root-level 형태를 파서가 인식하지 못해 실제 Codex usage가 0% 측정됐다(H-005). 근거·재현·수정은 [review.md](docs/validation/review.md)에 있다.
 - `SCOPE-001` (Medium): 자동 discovery가 `--workspace`를 입력받지 않아 모든 configured source root의 session을 후보로 만든다. 완료 조건은 Provider metadata에서 canonical workspace identity를 얻고 discovery 단계에서 필터하며, 명시 session mismatch와 interactive 0/1/N 회귀 테스트를 추가하는 것이다. 그 전에는 `--provider`와 `--session`을 함께 쓴다.
 - `CONSISTENCY-001` (Medium): adapter parse 뒤 source fingerprint/extent를 별도 read하므로 그 사이 append가 발생하면 한 번의 sync에서 projection과 manifest 시점이 달라질 수 있다. 완료 조건은 동일한 immutable snapshot/extent로 parse와 hash를 만들거나 변경을 감지해 재시도하고 append/truncate/partial-tail 회귀 테스트를 통과하는 것이다.
-- 실제 Provider 개인 로그와 실제 설정에 Hook을 설치하는 smoke, 자동화 host 밖 actual interactive TTY는 Not Run이다.
+- 자동화 host 밖 actual interactive TTY는 Not Run이다. 실제 로그 검증은 한 대의 Windows 머신 기준이며 다른 workspace 구성·오래된 세션 형식까지 전부 확인한 것은 아니다.
 
 ## 검증 재현
 

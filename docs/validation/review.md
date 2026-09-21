@@ -53,6 +53,29 @@
 - **수정:** `CliApplication.cs:211`에서 diagnostics warning 한 줄만 렌더링한다.
 - **회귀:** `CliTests.cs:94` 이후 assertion이 `stored_fallback` 한 번만 출력됨을 확인한다.
 
+## 2026-09-22 실제 Provider 로그 검증에서 발견한 사항 — High 2건, 해결
+
+`v0.1.0-preview.3`를 이 머신에 실제로 설치하고 Claude Code 2.1.278·Codex CLI 0.153.4 양쪽에 Hook을 등록한 뒤, 처음으로 실제(합성이 아닌) transcript/rollout으로 조회를 검증했다. 이전 검증은 모두 합성 fixture였다는 제한이 여기서 실제로 드러났다. 두 건 모두 재현하고 고쳤다.
+
+### H-004 — `--provider`가 다른 Provider 소스 읽기를 막지 못함 — 해결
+
+- **근거:** `AdapterCliRuntime.ReadAll()`이 요청받은 provider와 무관하게 `adapters` 딕셔너리 전체를 순회했다. `Discover(provider, sessionId)`는 `ReadAll()`로 전체를 먼저 읽은 뒤에야 provider로 필터링했다(`AdapterCliRuntime.cs:46-48`, 수정 전 기준).
+- **재현:** 이 머신에서 `current --provider claude --session <실제 session id>`가 `exit 5 unsupported_schema`로 실패했다. `TOKEN_METER_CODEX_SOURCES`를 빈 디렉터리로 돌리면 같은 명령이 성공해 실제 usage를 반환했다 — Codex 쪽 소스(H-005) 문제가 Claude 전용 조회까지 막고 있었다.
+- **영향:** 두 Provider를 함께 쓰는 환경에서는 한쪽 Provider의 실제 로그에 스키마 문제가 하나만 있어도 다른 Provider를 포함한 모든 명령이 실패한다. 오류 메시지도 어느 Provider가 원인인지 구분하지 않는다.
+- **수정:** `AdapterCliRuntime.cs`의 `ReadAll`이 `ProviderKind?` 필터를 받는다. `Discover`는 `--provider`가 명시되면 그 Provider의 adapter만 읽는다. `ReadSession`(→`ReadTurnsAsync`/`SyncAsync`/`RebuildAsync`)은 항상 구체적인 `session.Provider`를 알고 있으므로 그 Provider만 읽는다. `--provider` 없이 후보를 나열하는 경우(대화형 선택)는 기존과 같이 두 Provider를 모두 읽는다.
+- **회귀:** `AdapterCliRuntimeTests.cs`의 `ExplicitProviderIsolatesReadingFromAnUnsupportedOtherProviderSource` — Codex 소스를 의도적으로 깨뜨려 두고 `--provider claude`가 영향받지 않음을 확인한다.
+
+### H-005 — Codex 실제 rollout의 `token_usage_record`를 하나도 인식하지 못함 — 해결
+
+- **근거:** `CodexLineScanner.Scan`이 `token_usage_record`를 `{"type":"event_msg","payload":{"type":"token_usage_record", ...}}` 형태로만 인식했다(root `type`이 `event_msg`이고 그 `payload.type`이 `token_usage_record`). 그런데 이 머신에 설치된 Codex CLI 0.153.4 실제 rollout은 `token_usage_record`를 **root `type`으로 직접** 쓰고, session/turn/usage 필드는 `event_msg` 래퍼 없이 바로 `payload` 아래에 있다. 모든 fixture(`tests/fixtures/codex/*.jsonl`)가 전자만 모델링하고 있었다.
+- **재현:** 이 머신의 실제 `~/.codex/sessions` 776개 rollout 파일 전부에서 `CodexUsageAdapter.ReadDetailed`가 `tokenRecordCount=0`, `IsSupported=false`, 진단 `no_token_usage_records`를 반환했다. 실제 Codex 세션 하나(`current --provider codex --session <실제 id>`)로도 같은 실패를 재현했다.
+- **영향:** 이 문제가 고쳐지기 전에는 설치된 Codex CLI 0.153.4에서 실제 usage가 **0%** 측정됐다. `docs/research/provider-contracts.md`가 `payload.session_id` 등으로 문서화한 실제 관측 형태 자체는 맞았지만, 구현의 root-type 분류 조건이 그 형태를 반영하지 못했다.
+- **수정:** `CodexLineScanner.cs`의 `CodexRootType`에 `TokenUsageRecord`를 추가하고 `ReadRootType`이 root 리터럴 `"token_usage_record"`도 인식하게 했다. `Scan`은 root type이 `TokenUsageRecord`면 곧바로 `CodexLineKind.TokenUsageRecord`로 분류한다. 기존 `event_msg`+중첩 `payload.type` 경로는 그대로 남겨 뒀다(다른 소스가 그 형태를 쓸 가능성을 배제하지 않기 위해서다). 필드 파싱(`ScanPayload`)은 두 형태에서 동일하므로 변경하지 않았다.
+- **검증:** 수정 후 같은 776개 실제 rollout에서 실제 세션이 정상적으로 usage를 반환했다(예: `processedTokens=183941`). 기존 Codex fixture 전부는 변경 없이 그대로 통과한다.
+- **회귀:** `CodexAdapterTests.cs`의 `ReadDetailedRecognizesTheRealRootLevelTokenUsageRecordShape` — 새 fixture `tests/fixtures/codex/real-root-shape.jsonl`(root-level 형태, 실제 값은 노출하지 않는 합성 데이터)로 `two-turn-snapshots.jsonl`의 T1과 같은 수치를 검증한다.
+
+두 건 모두 실제 개인 데이터의 정확한 값이나 경로는 이 문서·커밋·fixture에 남기지 않았다. 재현에 쓴 수치(파일 개수, 반환된 token 합계)만 기록했다.
+
 ## 열린 Medium
 
 ### SCOPE-001 — 자동 session discovery가 workspace를 필터하지 않음

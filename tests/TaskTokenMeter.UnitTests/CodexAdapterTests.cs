@@ -43,6 +43,28 @@ public sealed class CodexAdapterTests
     }
 
     [Fact]
+    public void ReadDetailedRecognizesTheRealRootLevelTokenUsageRecordShape()
+    {
+        // Codex CLI 0.153.4 rollouts write token_usage_record as the root `type` directly, with
+        // session/turn/usage fields as siblings under `payload` — not nested inside an event_msg
+        // envelope the way every other fixture in this file models it. Verified against this
+        // machine's real rollouts, where the event_msg-wrapped shape matched zero of 776 files.
+        var adapter = new CodexUsageAdapter();
+
+        var result = adapter.ReadDetailed(Fixture("codex", "real-root-shape.jsonl"));
+
+        Assert.True(result.IsSupported);
+        var turn = Assert.Single(result.Turns);
+        Assert.Equal("synthetic-codex-turn-real-root", turn.RootTurnId);
+        Assert.Equal(250, turn.Usage.ProcessedTokens);
+        Assert.Equal(180, turn.Usage.InputTotal);
+        Assert.Equal(130, turn.Usage.UncachedInput);
+        Assert.Equal(2, turn.ApiCallCount);
+        Assert.Equal(100, turn.MaxObservedInput);
+        Assert.Equal(MeasurementQuality.Observed, turn.Quality);
+    }
+
+    [Fact]
     public void ReadDetailedPreservesSnapshotAuthorityWhenDeltaValidationFails()
     {
         var result = new CodexUsageAdapter().ReadDetailed(

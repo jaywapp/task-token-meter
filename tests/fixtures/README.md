@@ -39,6 +39,7 @@
 | `codex-fork-replay` | origin evidence 있는 replay dedupe와 evidence 없는 ambiguous 분리 | `codex/fork-replay/parent.jsonl`, `fork-with-origin.jsonl`, `fork-without-origin.jsonl` | `expected/codex-fork-replay.json` | C-CODEX-017/018 | 같은 origin replay `0`, 새 실행 `10`; 무증거 `30`은 미합산·미제거 |
 | `codex-interrupt-late-child` | main Interrupt, child Interrupt 부재, 늦은 SubagentStop | `codex/interrupt-late-child/revision-1-main.jsonl`, `revision-2-child.jsonl`, `hooks.json` | `expected/codex-interrupt-late-child.json` | C-CODEX-014/015 | rev1 `60`; rev2 `60+20=80`, root key 유지 |
 | `codex-hook-stdout` | Stop/SubagentStop `{}`, Interrupt 빈 stdout, plain/block/context 금지 | `codex/hook-stdout.json` | `expected/codex-hook-stdout.json` | C-CODEX-014/015/016 | 이벤트별 exact neutral bytes 비교; token 산식 없음 |
+| `codex-real-root-shape` | `token_usage_record`가 `event_msg` 없이 root `type`으로 직접 오는 실제 0.153.4 rollout 형태 | `codex/real-root-shape.jsonl` | 없음(unit test 직접 assert) | — | `two-turn-snapshots`의 T1과 동일 수치(`80+150=250` delta, `130+50` input); 분류(classification)만 검증하므로 별도 oracle 없이 `CodexAdapterTests.ReadDetailedRecognizesTheRealRootLevelTokenUsageRecordShape`가 직접 확인 |
 
 ## 미확인 의미의 표현
 

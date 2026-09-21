@@ -150,6 +150,44 @@ public sealed class AdapterCliRuntimeTests
         Assert.Equal(JsonSerializer.Serialize(first), JsonSerializer.Serialize(second));
     }
 
+    [Fact]
+    public async Task ExplicitProviderIsolatesReadingFromAnUnsupportedOtherProviderSource()
+    {
+        // Real machines configure both providers' default source roots. Before this fix, ReadAll()
+        // processed every adapter unconditionally, so a real Codex log the parser could not recognize
+        // (verified against 0.153.4 rollouts) made every `--provider claude` query fail with
+        // unsupported_schema too, even though nothing about the Codex source was ever asked for.
+        var root = Path.Combine(Path.GetTempPath(), "task-token-meter-runtime", Guid.NewGuid().ToString("N"));
+        var brokenCodexSource = Path.Combine(root, "broken.jsonl");
+        Directory.CreateDirectory(root);
+        try
+        {
+            await File.WriteAllTextAsync(brokenCodexSource, "{\"type\":\"not_a_recognized_record\",\"payload\":{}}\n");
+            var claudeSources = new[] { Fixture("claude", "cache-ttl.jsonl") };
+            var runtime = new AdapterCliRuntime(
+                Path.Combine(root, "data"),
+                sourceRoots: new Dictionary<ProviderKind, IReadOnlyList<string>>
+                {
+                    [ProviderKind.Claude] = claudeSources,
+                    [ProviderKind.Codex] = [brokenCodexSource]
+                });
+
+            // Codex alone still fails, proving the fixture is genuinely unsupported.
+            await Assert.ThrowsAsync<UnsupportedSourceException>(
+                () => runtime.SyncAsync(new SessionCandidate(ProviderKind.Codex, "does-not-matter", null, null), Path.GetTempPath(), default));
+
+            var claudeCandidates = runtime.Discover("claude", null);
+            Assert.NotEmpty(claudeCandidates);
+            var session = claudeCandidates[0];
+            var turns = await runtime.ReadTurnsAsync(session, Path.GetTempPath(), default);
+            Assert.NotEmpty(turns);
+        }
+        finally
+        {
+            if (Directory.Exists(root)) Directory.Delete(root, true);
+        }
+    }
+
     private static AdapterCliRuntime CreateRuntime(ProviderKind provider, IReadOnlyList<string> sources) => new(
         Path.Combine(Path.GetTempPath(), "task-token-meter-runtime", Guid.NewGuid().ToString("N")),
         sourceRoots: new Dictionary<ProviderKind, IReadOnlyList<string>> { [provider] = sources });
