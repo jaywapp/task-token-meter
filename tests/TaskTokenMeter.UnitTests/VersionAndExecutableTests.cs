@@ -62,6 +62,31 @@ public sealed class VersionAndExecutableTests
         Assert.Equal(overridePath, resolved);
     }
 
+    [Fact]
+    public void ResolvePrefersTheWinGetLinkForPortableInstalls()
+    {
+        var winGetRoot = @"C:\Users\person\AppData\Local\Microsoft\WinGet";
+        var packaged = Path.Combine(winGetRoot, "Packages", "Jaywapp.TaskTokenMeter_Microsoft.Winget.Source_8wekyb3d8bbwe", "task-token-meter.exe");
+        var link = Path.Combine(winGetRoot, "Links", "task-token-meter.exe");
+
+        var resolved = StableExecutableResolver.Resolve(
+            packaged,
+            path => string.Equals(path, link, StringComparison.OrdinalIgnoreCase),
+            static _ => null);
+
+        Assert.Equal(link, resolved);
+    }
+
+    [Fact]
+    public void ResolveKeepsThePackagedPathWhenTheWinGetLinkIsMissing()
+    {
+        var packaged = Path.Combine(@"C:\Users\person\AppData\Local\Microsoft\WinGet\Packages\Jaywapp.TaskTokenMeter_x", "task-token-meter.exe");
+
+        var resolved = StableExecutableResolver.Resolve(packaged, static _ => false, static _ => null);
+
+        Assert.Equal(packaged, resolved);
+    }
+
     [Theory]
     [InlineData("relative\\task-token-meter.cmd")]
     [InlineData("")]
