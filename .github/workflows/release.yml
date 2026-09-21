@@ -75,7 +75,8 @@ jobs:
         shell: pwsh
         run: |
           $outputRoot = Join-Path $env:RUNNER_TEMP ('package-' + [Guid]::NewGuid().ToString('N'))
-          $result = & ./packaging/Build-WindowsPackage.ps1 -OutputRoot $outputRoot -Version '${{ steps.version.outputs.version }}' | ConvertFrom-Json
+          & ./packaging/Build-WindowsPackage.ps1 -OutputRoot $outputRoot -Version '${{ steps.version.outputs.version }}' | Out-Host
+          $result = Get-Content -LiteralPath (Join-Path $outputRoot 'package-summary.json') -Raw | ConvertFrom-Json
           "outputRoot=$outputRoot" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
           "package=$($result.package)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
           "sha256=$($result.sha256)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append

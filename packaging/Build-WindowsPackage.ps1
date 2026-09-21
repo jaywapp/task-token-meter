@@ -25,7 +25,9 @@ if ($Version) {
     if ($Version.StartsWith("v")) { $Version = $Version.Substring(1) }
     $publishArguments += ("-p:Version=" + $Version)
 }
-& dotnet publish @publishArguments
+# Out-Host keeps the build log visible without putting it on the pipeline, so callers can parse the
+# JSON summary this script returns.
+& dotnet publish @publishArguments | Out-Host
 if ($LASTEXITCODE -ne 0) { throw "dotnet publish failed." }
 
 $requiredFiles = @("task-token-meter.exe", "coreclr.dll", "hostfxr.dll", "e_sqlite3.dll")
@@ -109,7 +111,7 @@ $archiveHash = (Get-FileHash -LiteralPath $archivePath -Algorithm SHA256).Hash
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot "install.ps1") -Destination (Join-Path $outputRoot "install.ps1")
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot "uninstall.ps1") -Destination (Join-Path $outputRoot "uninstall.ps1")
 
-[pscustomobject]@{
+$summary = [pscustomobject]@{
     package = $archivePath
     version = $reportedVersion
     sha256 = $archiveHash
@@ -118,4 +120,7 @@ Copy-Item -LiteralPath (Join-Path $PSScriptRoot "uninstall.ps1") -Destination (J
     nativeSqlite = $true
     selfContainedSmoke = $true
     wrapperSmoke = $true
-} | ConvertTo-Json
+}
+$summaryJson = $summary | ConvertTo-Json
+[IO.File]::WriteAllText((Join-Path $outputRoot "package-summary.json"), $summaryJson, [Text.UTF8Encoding]::new($false))
+$summaryJson
