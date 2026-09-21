@@ -21,3 +21,41 @@ jobs:
         run: dotnet build --no-restore --configuration Release
       - name: Test
         run: dotnet test --no-build --configuration Release --verbosity normal
+
+  packaging:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.400
+      - name: Restore
+        run: dotnet restore --locked-mode
+      - name: Build the package
+        id: package
+        shell: pwsh
+        run: |
+          $outputRoot = Join-Path $env:RUNNER_TEMP ('package-' + [Guid]::NewGuid().ToString('N'))
+          & ./packaging/Build-WindowsPackage.ps1 -OutputRoot $outputRoot -Version '0.0.0-ci' | Out-Host
+          $result = Get-Content -LiteralPath (Join-Path $outputRoot 'package-summary.json') -Raw | ConvertFrom-Json
+          "package=$($result.package)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          "publishRoot=$(Join-Path $outputRoot 'publish')" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+      - name: Windows PowerShell 5.1 smoke
+        shell: pwsh
+        run: |
+          powershell.exe -NoProfile -ExecutionPolicy Bypass -File packaging/Smoke-PowerShell51.ps1 -Executable (Join-Path '${{ steps.package.outputs.publishRoot }}' 'task-token-meter.exe')
+          if ($LASTEXITCODE -ne 0) { throw 'The Windows PowerShell 5.1 smoke failed.' }
+      - name: Installer tests (PowerShell 7)
+        shell: pwsh
+        run: ./packaging/Test-Installer.ps1 -ArchivePath '${{ steps.package.outputs.package }}'
+      - name: Installer tests (Windows PowerShell 5.1)
+        shell: pwsh
+        run: |
+          powershell.exe -NoProfile -ExecutionPolicy Bypass -File packaging/Test-Installer.ps1 -ArchivePath '${{ steps.package.outputs.package }}'
+          if ($LASTEXITCODE -ne 0) { throw 'The Windows PowerShell 5.1 installer tests failed.' }
+      - name: npm packages
+        shell: pwsh
+        run: |
+          $outputRoot = Join-Path $env:RUNNER_TEMP ('npm-' + [Guid]::NewGuid().ToString('N'))
+          (& ./packaging/Build-NpmPackages.ps1 -Version '0.0.0-ci' -ArchivePath '${{ steps.package.outputs.package }}' -OutputRoot $outputRoot) | Out-Host
+          ./packaging/Test-NpmPackage.ps1 -PackRoot $outputRoot -Version '0.0.0-ci'

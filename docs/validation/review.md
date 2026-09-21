@@ -2,7 +2,9 @@
 
 검토일은 2026-09-20이다. 구현 전체를 정확성, 개인정보, 비차단 동작, crash/retry 회복, 패키징 위생 관점에서 독립 검토했다. 제품 코드는 커밋·push·배포하지 않았고 실제 Provider 설정에 Hook을 설치하지 않았다.
 
-전체 release acceptance는 **Fail**이다. Critical/High 미해결 항목은 없지만, 이미 검증된 `PERF-001`이 release blocker로 열려 있다. 공식 21 MiB/100,000행 warm p95는 1,648.19 ms로 1초 기준을 넘는다.
+이 문서는 2026-09-20 기준 리뷰 결과다. 아래 `PERF-001` 관련 판정은 2026-09-21 Codex adapter streaming projection 최적화로 해소되었으며, 갱신된 수치와 근거는 [performance.md](performance.md)와 [acceptance.md](acceptance.md)에 있다. 나머지 발견 항목은 이 문서의 기록을 유지한다.
+
+리뷰 시점의 전체 release acceptance는 **Fail**이었다. Critical/High 미해결 항목은 없었지만, 이미 검증된 `PERF-001`이 release blocker로 열려 있었다. 공식 21 MiB/100,000행 warm p95는 1,648.19 ms로 1초 기준을 넘었다.
 
 ## 결과 요약
 
@@ -117,6 +119,6 @@ Adapter가 JSONL을 parse한 뒤 `AdapterCliRuntime.BuildSourceSnapshotsAsync`(`
 | Markdown links/trailing whitespace/plan dependency scan | Pass |
 | actual personal Provider logs | Not Run |
 | actual Provider settings Hook install | Not Run |
-| performance acceptance | **Fail — PERF-001** |
+| performance acceptance | 리뷰 시점 **Fail — PERF-001**, 2026-09-21 해소 |
 
-성능 수치는 TASK-013의 검증된 결과를 유지했다. TASK-014에서 성능 최적화를 억지로 추가하지 않았으며 [performance.md](performance.md)의 재현과 완료 조건을 변경하지 않았다.
+리뷰 당시 성능 수치는 TASK-013의 검증된 결과를 유지했다. TASK-014에서 성능 최적화를 억지로 추가하지 않았으며 [performance.md](performance.md)의 재현과 완료 조건을 변경하지 않았다. `PERF-001`은 이후 별도 작업에서 Codex adapter streaming projection으로 해소했고, 같은 fixture 재측정에서 warm p95 821.47 ms를 기록했다.

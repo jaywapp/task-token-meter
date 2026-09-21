@@ -44,20 +44,65 @@ try {
         if (-not $npm) { throw "npm.cmd was not found on PATH." }
 
         Write-Host "==> Installing the packed tarballs"
-        & $npm.Source init -y --silent | Out-Null
-        & $npm.Source install --silent --no-audit --no-fund $platformTarball $launcherTarball
-        Test-Condition "npm install exit code is 0" ($LASTEXITCODE -eq 0) "exit $LASTEXITCODE"
+        Write-Host ("    npm " + (& $npm.Source --version))
 
-        $launcherBin = Join-Path $sandbox "node_modules\.bin\task-token-meter.cmd"
-        Test-Condition "launcher bin is installed" (Test-Path -LiteralPath $launcherBin)
+        # The launcher declares the platform package as an optional dependency by exact version. That
+        # version is not on the registry while testing, and npm 10 then skips the launcher itself, so the
+        # manifest resolves both packages from the local tarballs.
+        $platformSpecifier = "file:" + $platformTarball.Replace("\", "/")
+        $launcherSpecifier = "file:" + $launcherTarball.Replace("\", "/")
+        $manifest = [pscustomobject]@{
+            name         = "task-token-meter-install-test"
+            version      = "1.0.0"
+            private      = $true
+            dependencies = [pscustomobject]@{
+                "task-token-meter"                    = $launcherSpecifier
+                "@jaywapp/task-token-meter-win32-x64" = $platformSpecifier
+            }
+            overrides    = [pscustomobject]@{
+                "@jaywapp/task-token-meter-win32-x64" = $platformSpecifier
+            }
+        }
+        [IO.File]::WriteAllText((Join-Path $sandbox "package.json"), ($manifest | ConvertTo-Json -Depth 5), (New-Object Text.UTF8Encoding($false)))
+
+        & $npm.Source install --no-audit --no-fund
+        Test-Condition "npm install exit code is 0" ($LASTEXITCODE -eq 0) "exit $LASTEXITCODE"
+        $installedModules = @()
+        if (Test-Path -LiteralPath (Join-Path $sandbox "node_modules")) {
+            $installedModules = @(Get-ChildItem -LiteralPath (Join-Path $sandbox "node_modules") -Directory | ForEach-Object { $_.Name })
+        }
+        Write-Host ("    node_modules: " + ($installedModules -join ", "))
+
+        # npm writes several bin shims on Windows and the set differs between npm releases, so the
+        # functional checks run through whichever entry point exists.
+        $binDirectory = Join-Path $sandbox "node_modules\.bin"
+        $binEntries = @()
+        if (Test-Path -LiteralPath $binDirectory) {
+            $binEntries = @(Get-ChildItem -LiteralPath $binDirectory -Filter "task-token-meter*" -File)
+            Write-Host ("    bin entries: " + (($binEntries | ForEach-Object { $_.Name }) -join ", "))
+        }
+        Test-Condition "launcher bin is installed" ($binEntries.Count -gt 0)
+
+        $launcherScript = Join-Path $sandbox "node_modules\task-token-meter\bin\task-token-meter.js"
+        Test-Condition "launcher script is installed" (Test-Path -LiteralPath $launcherScript)
+        $cmdShim = $binEntries | Where-Object { $_.Extension -eq ".cmd" } | Select-Object -First 1
+        if ($cmdShim) {
+            $script:launcherCommand = $cmdShim.FullName
+            $script:launcherPrefix = @()
+        }
+        else {
+            Write-Host "    no .cmd shim; running the launcher with node"
+            $script:launcherCommand = "node"
+            $script:launcherPrefix = @($launcherScript)
+        }
 
         Write-Host "==> Running the launcher"
-        $versionOutput = & $launcherBin version --json 2>&1
+        $versionOutput = & $script:launcherCommand @script:launcherPrefix version --json 2>&1
         Test-Condition "launcher exit code is 0" ($LASTEXITCODE -eq 0) "exit $LASTEXITCODE"
         $reported = (($versionOutput -join "") | ConvertFrom-Json).version
         Test-Condition "launcher reports the packaged version" ($reported -eq $Version) $reported
 
-        $helpOutput = & $launcherBin --help 2>&1
+        $helpOutput = & $script:launcherCommand @script:launcherPrefix --help 2>&1
         Test-Condition "launcher prints help" ((($helpOutput -join "")) -match "token-meter")
 
         $embedded = Join-Path $sandbox "node_modules\@jaywapp\task-token-meter-win32-x64\dist\task-token-meter.exe"
@@ -68,7 +113,7 @@ try {
         # Windows PowerShell turns native stderr into terminating errors while ErrorActionPreference is Stop.
         $previousPreference = $ErrorActionPreference
         $ErrorActionPreference = "Continue"
-        try { & $launcherBin unknown-command > $null 2> $null }
+        try { & $script:launcherCommand @script:launcherPrefix unknown-command > $null 2> $null }
         finally { $ErrorActionPreference = $previousPreference }
         Test-Condition "unknown command exits with 2" ($LASTEXITCODE -eq 2) "exit $LASTEXITCODE"
     }

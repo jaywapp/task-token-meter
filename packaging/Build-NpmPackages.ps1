@@ -40,10 +40,19 @@ $launcherDirectory = Join-Path $outputRoot "task-token-meter"
 $platformDirectory = Join-Path $outputRoot "platform-win32-x64"
 New-Item -ItemType Directory -Path $outputRoot -Force | Out-Null
 
-Copy-Item -LiteralPath (Join-Path $npmSource "task-token-meter") -Destination $launcherDirectory -Recurse
-Copy-Item -LiteralPath (Join-Path $npmSource "platform-win32-x64") -Destination $platformDirectory -Recurse
+# Copy the contents explicitly: Copy-Item -Recurse on a directory behaves differently between
+# Windows PowerShell 5.1 and PowerShell 7 when the destination does not exist yet.
+New-Item -ItemType Directory -Path $launcherDirectory -Force | Out-Null
+New-Item -ItemType Directory -Path $platformDirectory -Force | Out-Null
+Copy-Item -Path (Join-Path $npmSource "task-token-meter\*") -Destination $launcherDirectory -Recurse -Force
+Copy-Item -Path (Join-Path $npmSource "platform-win32-x64\*") -Destination $platformDirectory -Recurse -Force
 Copy-Item -LiteralPath (Join-Path $repoRoot "LICENSE") -Destination (Join-Path $launcherDirectory "LICENSE")
 Copy-Item -LiteralPath (Join-Path $repoRoot "LICENSE") -Destination (Join-Path $platformDirectory "LICENSE")
+
+$launcherEntryPoint = Join-Path $launcherDirectory "bin\task-token-meter.js"
+if (-not (Test-Path -LiteralPath $launcherEntryPoint)) {
+    throw "The staged launcher package is missing bin/task-token-meter.js."
+}
 
 function Set-PackageVersion {
     param([string]$ManifestPath, [string]$Version, [bool]$UpdateOptionalDependency)
@@ -97,6 +106,29 @@ foreach ($directory in @($platformDirectory, $launcherDirectory)) {
     }
     finally { Pop-Location }
 }
+
+# A packed launcher without its entry point installs cleanly and then fails at run time, so the
+# tarball contents are checked before the packages are reported as built.
+Add-Type -AssemblyName System.IO.Compression.FileSystem
+$launcherTarball = $tarballs | Where-Object { $_ -notlike "*win32-x64*" } | Select-Object -First 1
+$inspectRoot = Join-Path $outputRoot "inspect"
+New-Item -ItemType Directory -Path $inspectRoot -Force | Out-Null
+$gzip = New-Object IO.Compression.GZipStream([IO.File]::OpenRead($launcherTarball), [IO.Compression.CompressionMode]::Decompress)
+try {
+    $bytes = New-Object byte[] 4096
+    $tarPath = Join-Path $inspectRoot "launcher.tar"
+    $tarStream = [IO.File]::Create($tarPath)
+    try {
+        while (($read = $gzip.Read($bytes, 0, $bytes.Length)) -gt 0) { $tarStream.Write($bytes, 0, $read) }
+    }
+    finally { $tarStream.Dispose() }
+}
+finally { $gzip.Dispose() }
+$tarText = [IO.File]::ReadAllText((Join-Path $inspectRoot "launcher.tar"), [Text.Encoding]::ASCII)
+foreach ($required in @("package/package.json", "package/bin/task-token-meter.js")) {
+    if (-not $tarText.Contains($required)) { throw "The launcher tarball does not contain $required." }
+}
+Remove-Item -LiteralPath $inspectRoot -Recurse -Force
 
 $report = $tarballs | ForEach-Object {
     [pscustomobject]@{
