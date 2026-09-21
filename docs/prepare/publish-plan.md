@@ -266,6 +266,8 @@ postinstall에서 임의 URL의 바이너리를 다운로드하지 않는다. li
 
 npm publish는 장기 `NPM_TOKEN` 대신 GitHub Actions OIDC trusted publishing을 사용한다. public package는 provenance를 활성화한다. 최초 게시 전에 npmjs.com에서 두 패키지에 대한 trusted publisher(저장소와 workflow 파일 지정)를 등록해야 한다.
 
+게시 단계는 저장소 변수 `NPM_PUBLISH_ENABLED`가 `true`일 때만 실행된다. 그 전에는 release 게시 때마다 패키지를 만들고 설치·실행 테스트까지 수행한 뒤 "게시하지 않음" notice를 남긴다. trusted publisher 등록을 마친 뒤 변수를 켠다.
+
 - [npm trusted publishing 문서](https://docs.npmjs.com/trusted-publishers/)
 
 2026-09-21 조회 시 `task-token-meter` package는 npm registry에서 E404였지만 이름 사용 가능 여부는 최초 publish 직전에 다시 확인한다.
