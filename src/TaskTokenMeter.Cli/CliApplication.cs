@@ -80,6 +80,7 @@ public static class CliApplication
         {
             var command = CliCommand.Parse(args, console.IsContinuousIntegration);
             if (command.Kind == CliCommandKind.Help) { RenderHelp(console); return Success; }
+            if (command.Kind == CliCommandKind.Version) { RenderVersion(command, console); return Success; }
             if (command.Kind is CliCommandKind.StorageStatus or CliCommandKind.StorageMigrate)
                 return await RunStorageAsync(command, runtime, console, cancellationToken).ConfigureAwait(false);
 
@@ -236,10 +237,27 @@ public static class CliApplication
         else console.Write(string.Join(Environment.NewLine, value.GetType().GetProperties().Select(property => property.Name + ": " + property.GetValue(value))) + Environment.NewLine);
     }
     private static string SafeCode(Exception exception) => exception is IOException ? "storage_error" : "command_failed";
-    private static void RenderHelp(ICliConsole console) => console.Write("Usage: token-meter <current|last|turns|sync|rebuild|storage|hook> [options]" + Environment.NewLine + "Options: --provider claude|codex --session ID --workspace PATH --json --strict --non-interactive" + Environment.NewLine + "Hook: hook <install|status|uninstall> --provider NAME [options]" + Environment.NewLine + "Privacy: prompts, messages, tool input, environment variables, and credentials are never displayed or stored." + Environment.NewLine);
+
+    private static void RenderVersion(CliCommand command, ICliConsole console)
+    {
+        if (command.Json)
+        {
+            console.Write(JsonSerializer.Serialize(new
+            {
+                schemaVersion = 1,
+                version = VersionInfo.Informational,
+                fileVersion = VersionInfo.File
+            }, ContractJson.Options) + Environment.NewLine);
+            return;
+        }
+
+        console.Write(VersionInfo.Product + " " + VersionInfo.Informational + Environment.NewLine);
+    }
+
+    private static void RenderHelp(ICliConsole console) => console.Write("Usage: token-meter <current|last|turns|sync|rebuild|storage|hook|version> [options]" + Environment.NewLine + "Options: --provider claude|codex --session ID --workspace PATH --json --strict --non-interactive --version" + Environment.NewLine + "Hook: hook <install|status|uninstall> --provider NAME [options]" + Environment.NewLine + "Privacy: prompts, messages, tool input, environment variables, and credentials are never displayed or stored." + Environment.NewLine);
 }
 
-public enum CliCommandKind { Help, Current, Last, Turns, Sync, Rebuild, StorageStatus, StorageMigrate }
+public enum CliCommandKind { Help, Version, Current, Last, Turns, Sync, Rebuild, StorageStatus, StorageMigrate }
 
 public sealed record CliCommand(CliCommandKind Kind, ProviderKind? Provider, string? SessionId, string Workspace, bool Json, bool Strict, bool DryRun, StorageMode? DestinationMode, InteractionMode InteractionMode, bool IsContinuousIntegration)
 {
@@ -253,7 +271,7 @@ public sealed record CliCommand(CliCommandKind Kind, ProviderKind? Provider, str
     {
         if (args.Length == 0 || args[0] is "--help" or "-h" or "help") return Default(CliCommandKind.Help);
         var index = 0;
-        var kind = args[index++] switch { "current" => CliCommandKind.Current, "last" => CliCommandKind.Last, "turns" => CliCommandKind.Turns, "sync" => CliCommandKind.Sync, "rebuild" => CliCommandKind.Rebuild, "storage" => ParseStorage(args, ref index), _ => throw new ArgumentException("Unknown command.") };
+        var kind = args[index++] switch { "current" => CliCommandKind.Current, "last" => CliCommandKind.Last, "turns" => CliCommandKind.Turns, "sync" => CliCommandKind.Sync, "rebuild" => CliCommandKind.Rebuild, "storage" => ParseStorage(args, ref index), "version" or "--version" or "-v" => CliCommandKind.Version, _ => throw new ArgumentException("Unknown command.") };
         ProviderKind? provider = null; string? session = null; string? workspace = null; var json = false; var strict = false; var dryRun = false; StorageMode? destination = null; var nonInteractive = false;
         while (index < args.Length)
         {

@@ -21,7 +21,9 @@ public sealed record HookInstallationStatus(
     string SettingsPath,
     int InstalledEntryCount,
     int ExpectedEntryCount,
-    string? BackupPath);
+    string? BackupPath,
+    string? ExecutablePath = null,
+    bool ExecutableAvailable = false);
 
 public sealed record HookInvocationContext(
     HookProvider Provider,

@@ -136,7 +136,9 @@ public static class HookCliApplication
                 settingsPath = status.SettingsPath,
                 installedEntryCount = status.InstalledEntryCount,
                 expectedEntryCount = status.ExpectedEntryCount,
-                backupPath = status.BackupPath
+                backupPath = status.BackupPath,
+                executablePath = status.ExecutablePath,
+                executableAvailable = status.ExecutableAvailable
             }, ContractJson.Options) + Environment.NewLine);
             return;
         }
@@ -146,6 +148,11 @@ public static class HookCliApplication
         console.Write("Entries: " + status.InstalledEntryCount.ToString(CultureInfo.InvariantCulture) +
             "/" + status.ExpectedEntryCount.ToString(CultureInfo.InvariantCulture) + Environment.NewLine);
         console.Write("Settings: " + status.SettingsPath + Environment.NewLine);
+        if (status.ExecutablePath is not null)
+        {
+            console.Write("Executable: " + status.ExecutablePath +
+                (status.ExecutableAvailable ? string.Empty : " (missing)") + Environment.NewLine);
+        }
     }
 }
 
@@ -219,7 +226,10 @@ internal sealed record HookCommand(
         if (action == HookAction.Install)
         {
             if (providerVersion is null) throw new ArgumentException("Provider version is required.");
-            executablePath ??= Environment.ProcessPath ?? throw new ArgumentException("Hook executable path is required.");
+            executablePath ??= StableExecutableResolver.Resolve(
+                Environment.ProcessPath ?? throw new ArgumentException("Hook executable path is required."),
+                File.Exists,
+                Environment.GetEnvironmentVariable);
         }
 
         if (action == HookAction.Run && !managed) throw new ArgumentException("Managed Hook marker is required.");

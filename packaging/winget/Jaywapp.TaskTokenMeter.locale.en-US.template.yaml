@@ -1,0 +1,29 @@
+# yaml-language-server: $schema=https://aka.ms/winget-manifest.defaultLocale.1.6.0.schema.json
+PackageIdentifier: Jaywapp.TaskTokenMeter
+PackageVersion: {{VERSION}}
+PackageLocale: en-US
+Publisher: jaywapp
+PublisherUrl: https://github.com/jaywapp
+PublisherSupportUrl: https://github.com/{{REPOSITORY}}/issues
+PackageName: Task Token Meter
+PackageUrl: https://github.com/{{REPOSITORY}}
+License: MIT
+LicenseUrl: https://github.com/{{REPOSITORY}}/blob/main/LICENSE
+Copyright: Copyright (c) 2026 jaywapp
+ShortDescription: Measures Claude Code and Codex CLI token usage per turn.
+Description: |-
+  Task Token Meter aggregates the token usage that Claude Code and Codex CLI write to their local
+  session logs, grouped by root turn instead of by session. It reads provider usage records directly,
+  removes duplicated entries, attributes subagent activity to the originating turn, and stores the
+  result in a local SQLite ledger. Prompts, messages and tool arguments are never displayed or stored.
+Moniker: task-token-meter
+Tags:
+  - claude-code
+  - cli
+  - codex
+  - observability
+  - tokens
+  - usage
+ReleaseNotesUrl: https://github.com/{{REPOSITORY}}/releases/tag/{{TAG}}
+ManifestType: defaultLocale
+ManifestVersion: 1.6.0

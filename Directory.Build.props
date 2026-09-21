@@ -12,4 +12,13 @@
     <Deterministic>true</Deterministic>
     <ContinuousIntegrationBuild Condition="'$(CI)' == 'true'">true</ContinuousIntegrationBuild>
   </PropertyGroup>
+  <PropertyGroup>
+    <!-- Release builds pass the tag version with -p:Version=0.1.0-preview.1. -->
+    <Version Condition="'$(Version)' == ''">0.0.0-dev</Version>
+    <VersionCore>$([System.Text.RegularExpressions.Regex]::Replace($(Version), '[-+].*$', ''))</VersionCore>
+    <AssemblyVersion>$(VersionCore).0</AssemblyVersion>
+    <FileVersion>$(VersionCore).0</FileVersion>
+    <InformationalVersion>$(Version)</InformationalVersion>
+    <Product>Task Token Meter</Product>
+  </PropertyGroup>
 </Project>

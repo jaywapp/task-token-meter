@@ -1,0 +1,22 @@
+{
+  "name": "@jaywapp/task-token-meter-win32-x64",
+  "version": "0.0.0-dev",
+  "description": "Windows x64 binary for task-token-meter.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jaywapp/task-token-meter.git"
+  },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "os": [
+    "win32"
+  ],
+  "cpu": [
+    "x64"
+  ]
+}

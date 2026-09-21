@@ -1,0 +1,97 @@
+name: Publish npm
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Release version to publish, for example 0.1.0-preview.1.
+        required: true
+        type: string
+      dry_run:
+        description: Build and test the packages without publishing.
+        required: false
+        default: true
+        type: boolean
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: windows-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+
+      - name: Use an npm release with trusted publishing
+        run: npm install -g npm@^11
+
+      - name: Resolve the release
+        id: release
+        shell: pwsh
+        run: |
+          if ('${{ github.event_name }}' -eq 'release') {
+            $tag = '${{ github.event.release.tag_name }}'
+          }
+          else {
+            $tag = 'v' + '${{ inputs.version }}'
+          }
+          if ($tag -notmatch '^v(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(-[0-9A-Za-z.-]+)?$') {
+            throw "Tag $tag is not a SemVer release tag."
+          }
+          $version = $tag.Substring(1)
+          if ($version.Contains('-')) { $distTag = 'next' } else { $distTag = 'latest' }
+          "tag=$tag" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          "distTag=$distTag" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+
+      - name: Download the release package
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $downloadRoot = Join-Path $env:RUNNER_TEMP 'release-assets'
+          New-Item -ItemType Directory -Path $downloadRoot -Force | Out-Null
+          gh release download '${{ steps.release.outputs.tag }}' --repo ${{ github.repository }} --dir $downloadRoot --pattern 'task-token-meter-win-x64.zip*'
+          if ($LASTEXITCODE -ne 0) { throw 'The release assets could not be downloaded.' }
+          $archive = Join-Path $downloadRoot 'task-token-meter-win-x64.zip'
+          $expected = (Get-Content -LiteralPath ($archive + '.sha256') -Raw).Split(' ')[0].Trim().ToUpperInvariant()
+          $actual = (Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash
+          if ($actual -ne $expected) { throw 'The downloaded package hash does not match the published .sha256 file.' }
+          "ARCHIVE_PATH=$archive" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+      - name: Build the npm packages
+        id: packages
+        shell: pwsh
+        run: |
+          $outputRoot = Join-Path $env:RUNNER_TEMP ('npm-' + [Guid]::NewGuid().ToString('N'))
+          $result = (& ./packaging/Build-NpmPackages.ps1 -Version '${{ steps.release.outputs.version }}' -ArchivePath $env:ARCHIVE_PATH -OutputRoot $outputRoot) -join "`n" | ConvertFrom-Json
+          "outputRoot=$($result.outputRoot)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          foreach ($package in $result.packages) { Write-Host "$($package.tarball) $($package.bytes) bytes $($package.sha256)" }
+
+      - name: Test the npm packages
+        shell: pwsh
+        run: ./packaging/Test-NpmPackage.ps1 -PackRoot '${{ steps.packages.outputs.outputRoot }}' -Version '${{ steps.release.outputs.version }}'
+
+      - name: Publish to npm
+        if: github.event_name == 'release' || inputs.dry_run == false
+        shell: pwsh
+        run: |
+          $outputRoot = '${{ steps.packages.outputs.outputRoot }}'
+          $platform = Get-ChildItem -LiteralPath $outputRoot -Filter '*win32-x64*.tgz' -File | Select-Object -First 1
+          $launcher = Get-ChildItem -LiteralPath $outputRoot -Filter '*.tgz' -File | Where-Object { $_.Name -notlike '*win32-x64*' } | Select-Object -First 1
+          foreach ($tarball in @($platform, $launcher)) {
+            npm publish $tarball.FullName --provenance --access public --tag '${{ steps.release.outputs.distTag }}'
+            if ($LASTEXITCODE -ne 0) { throw "npm publish failed for $($tarball.Name)." }
+          }
