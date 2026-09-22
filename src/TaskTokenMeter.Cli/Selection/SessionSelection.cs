@@ -38,7 +38,8 @@ public sealed record SessionSelectionRequest(
     ProviderKind? Provider,
     string? SessionId,
     InteractionMode InteractionMode,
-    bool IsContinuousIntegration = false);
+    bool IsContinuousIntegration = false,
+    string? Workspace = null);
 
 public sealed record SessionSelectionResult(SessionSelectionStatus Status, SessionCandidate? Candidate = null)
 {
@@ -67,7 +68,7 @@ public sealed class SessionSelector(ISessionDiscovery discovery)
             return new SessionSelectionResult(SessionSelectionStatus.SelectorRequired);
         }
 
-        var candidates = Discover(request.Provider, request.SessionId);
+        var candidates = Discover(request.Provider, request.SessionId, request.Workspace);
         if (!string.IsNullOrWhiteSpace(request.SessionId))
         {
             var explicitCandidate = candidates.FirstOrDefault(candidate =>
@@ -76,7 +77,7 @@ public sealed class SessionSelector(ISessionDiscovery discovery)
 
             return explicitCandidate is null
                 ? new SessionSelectionResult(SessionSelectionStatus.CandidateUnavailable)
-                : Revalidate(explicitCandidate);
+                : Revalidate(explicitCandidate, request.Workspace);
         }
 
         if (candidates.Count == 0)
@@ -86,7 +87,7 @@ public sealed class SessionSelector(ISessionDiscovery discovery)
 
         if (candidates.Count == 1)
         {
-            return Revalidate(candidates[0]);
+            return Revalidate(candidates[0], request.Workspace);
         }
 
         RenderCandidates(candidates, console);
@@ -107,18 +108,18 @@ public sealed class SessionSelector(ISessionDiscovery discovery)
                 continue;
             }
 
-            return Revalidate(candidates[selectedNumber - 1]);
+            return Revalidate(candidates[selectedNumber - 1], request.Workspace);
         }
     }
 
-    private IReadOnlyList<SessionCandidate> Discover(ProviderKind? provider, string? sessionId)
+    private IReadOnlyList<SessionCandidate> Discover(ProviderKind? provider, string? sessionId, string? workspace = null)
     {
-        return discovery.Discover(provider?.ToString().ToLowerInvariant(), sessionId);
+        return discovery.Discover(provider?.ToString().ToLowerInvariant(), sessionId, workspace);
     }
 
-    private SessionSelectionResult Revalidate(SessionCandidate candidate)
+    private SessionSelectionResult Revalidate(SessionCandidate candidate, string? workspace)
     {
-        var current = Discover(candidate.Provider, candidate.SessionId)
+        var current = Discover(candidate.Provider, candidate.SessionId, workspace)
             .FirstOrDefault(item => item.Provider == candidate.Provider &&
                 string.Equals(item.SessionId, candidate.SessionId, StringComparison.Ordinal));
 

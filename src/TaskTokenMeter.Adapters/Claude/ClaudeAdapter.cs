@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Text;
 using System.Text.Json;
 using TaskTokenMeter.Core.Contracts;
+using TaskTokenMeter.Core.Identity;
 
 namespace TaskTokenMeter.Adapters.Claude;
 
@@ -404,6 +405,7 @@ public sealed class ClaudeAdapter : IUsageAdapter
         var syntheticEntryKind = ReadString(root, "syntheticEntryKind");
         var isMeta = ReadBoolean(root, "isMeta") ?? false;
         var timestamp = ReadTimestamp(root, "timestamp");
+        var cwd = ReadString(root, "cwd");
 
         root.TryGetProperty("message", out var message);
         var role = message.ValueKind == JsonValueKind.Object ? ReadString(message, "role") : null;
@@ -436,7 +438,8 @@ public sealed class ClaudeAdapter : IUsageAdapter
                 requestId,
                 messageId,
                 model,
-                null);
+                null,
+                cwd);
         }
 
         if (usage is not null)
@@ -458,7 +461,8 @@ public sealed class ClaudeAdapter : IUsageAdapter
             requestId,
             messageId,
             model,
-            usage);
+            usage,
+            cwd);
     }
 
     private static RecordKind ClassifyRecord(
@@ -941,6 +945,21 @@ public sealed class ClaudeAdapter : IUsageAdapter
                 .Where(timestamp => timestamp is not null)
                 .Max();
 
+            // Workspace identity is best-effort discovery metadata, not part of the usage calculation:
+            // a record without a recorded cwd never turns the turn Invalid, and calls that disagree on
+            // canonical workspace (rare — a mid-turn directory change) leave it unknown rather than
+            // guessing, with a diagnostic so the ambiguity is visible instead of silent.
+            var workspaceCandidates = turnCalls
+                .Select(call => WorkspaceRoot.TryFindGitRoot(call.Cwd))
+                .Where(root => root is not null)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+            var workspaceRoot = workspaceCandidates.Length == 1 ? workspaceCandidates[0] : null;
+            if (workspaceCandidates.Length > 1)
+            {
+                diagnostics.Add("workspace_conflict");
+            }
+
             turns.Add(new ClaudeTurnObservation(
                 turnGroup.Key.RootSessionId,
                 turnGroup.Key.RootTurnId,
@@ -954,7 +973,8 @@ public sealed class ClaudeAdapter : IUsageAdapter
                 memberships,
                 executionState,
                 OrderedDistinct(diagnostics),
-                latestTimestamp?.ToString("O", CultureInfo.InvariantCulture)));
+                latestTimestamp?.ToString("O", CultureInfo.InvariantCulture),
+                workspaceRoot));
         }
 
         return turns;
@@ -1306,7 +1326,8 @@ public sealed class ClaudeAdapter : IUsageAdapter
         string? RequestId,
         string? MessageId,
         string? Model,
-        ParsedUsage? Usage);
+        ParsedUsage? Usage,
+        string? Cwd);
 
     private sealed record ParsedUsage(
         long? InputTokens,
@@ -1380,7 +1401,8 @@ public sealed class ClaudeAdapter : IUsageAdapter
         ClaudeNativeUsage? NativeUsage,
         ClaudeMembership Membership,
         IReadOnlyList<string> Diagnostics,
-        DateTimeOffset? Timestamp)
+        DateTimeOffset? Timestamp,
+        string? Cwd)
     {
         public static CallResult Valid(
             PromptContext context,
@@ -1394,7 +1416,8 @@ public sealed class ClaudeAdapter : IUsageAdapter
                 ToNativeUsage(usage),
                 MembershipFor(context, executionId, ClaudeAttributionStatus.Attributed, EvidenceFor(context, observations)),
                 diagnostics,
-                record.Timestamp);
+                record.Timestamp,
+                record.Cwd);
 
         public static CallResult InvalidAlias(
             PromptContext context,
@@ -1405,7 +1428,8 @@ public sealed class ClaudeAdapter : IUsageAdapter
                 null,
                 MembershipFor(context, executionId, ClaudeAttributionStatus.Invalid, "conflicting-immutable-fields"),
                 ["invalid_alias_conflict"],
-                records.Select(record => record.Timestamp).Where(value => value is not null).Max());
+                records.Select(record => record.Timestamp).Where(value => value is not null).Max(),
+                records.Select(record => record.Cwd).FirstOrDefault(cwd => cwd is not null));
 
         public static CallResult InvalidTtl(
             PromptContext context,
@@ -1418,7 +1442,8 @@ public sealed class ClaudeAdapter : IUsageAdapter
                 ToNativeUsage(usage),
                 MembershipFor(context, executionId, ClaudeAttributionStatus.Invalid, "ttl-total-mismatch"),
                 diagnostics,
-                record.Timestamp);
+                record.Timestamp,
+                record.Cwd);
 
         public static CallResult InvalidUsage(
             PromptContext context,
@@ -1431,7 +1456,8 @@ public sealed class ClaudeAdapter : IUsageAdapter
                 ToNativeUsage(usage),
                 MembershipFor(context, executionId, ClaudeAttributionStatus.Invalid, "invalid-usage-shape"),
                 diagnostics,
-                record.Timestamp);
+                record.Timestamp,
+                record.Cwd);
 
         public static CallResult UnattributedIdentity(UsageObservation observation)
         {
@@ -1446,7 +1472,8 @@ public sealed class ClaudeAdapter : IUsageAdapter
                     ClaudeAttributionStatus.Unattributed,
                     "missing-call-identity"),
                 ["missing_call_identity"],
-                observation.Record.Timestamp);
+                observation.Record.Timestamp,
+                observation.Record.Cwd);
         }
 
         private static ClaudeMembership MembershipFor(

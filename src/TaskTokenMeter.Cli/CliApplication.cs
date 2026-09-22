@@ -27,7 +27,7 @@ public interface ICliRuntime : ISessionDiscovery
 
 public sealed class EmptyCliRuntime : ICliRuntime
 {
-    public IReadOnlyList<SessionCandidate> Discover(string? provider, string? sessionId) => [];
+    public IReadOnlyList<SessionCandidate> Discover(string? provider, string? sessionId, string? workspace = null) => [];
     public Task<IReadOnlyList<TurnProjection>> ReadTurnsAsync(SessionCandidate session, string workspace, CancellationToken cancellationToken) => Task.FromResult<IReadOnlyList<TurnProjection>>([]);
     public Task<IReadOnlyList<TurnProjection>> SyncAsync(SessionCandidate session, string workspace, CancellationToken cancellationToken) => Task.FromResult<IReadOnlyList<TurnProjection>>([]);
     public Task<IReadOnlyList<TurnProjection>> RebuildAsync(SessionCandidate session, string workspace, CancellationToken cancellationToken) => Task.FromResult<IReadOnlyList<TurnProjection>>([]);
@@ -84,7 +84,7 @@ public static class CliApplication
             if (command.Kind is CliCommandKind.StorageStatus or CliCommandKind.StorageMigrate)
                 return await RunStorageAsync(command, runtime, console, cancellationToken).ConfigureAwait(false);
 
-            var selection = new SessionSelector(runtime).Select(new SessionSelectionRequest(command.Provider, command.SessionId, command.InteractionMode, command.IsContinuousIntegration), console);
+            var selection = new SessionSelector(runtime).Select(new SessionSelectionRequest(command.Provider, command.SessionId, command.InteractionMode, command.IsContinuousIntegration, command.Workspace), console);
             if (selection.Status != SessionSelectionStatus.Selected) return RenderSelectionFailure(command, selection, console);
             var turns = command.Kind switch
             {

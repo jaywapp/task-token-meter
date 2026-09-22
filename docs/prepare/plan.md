@@ -1,6 +1,6 @@
 # Plan — 구현 작업 계획
 
-작성일: 2026-09-19 · 갱신일: 2026-09-22 · 상태: TASK-014 교차 리뷰 완료, PERF-001 해소, 실제 Provider 로그 검증에서 발견한 H-004/H-005 해소, release acceptance Fail (SCOPE-001)
+작성일: 2026-09-19 · 갱신일: 2026-09-22 · 상태: TASK-014 교차 리뷰 완료, PERF-001 해소, 실제 Provider 로그 검증에서 발견한 H-004/H-005 해소, SCOPE-001 해소, release acceptance **Pass**
 
 ## 계획의 기준
 
@@ -489,6 +489,6 @@ Medium
 
 최종 패키지는 win-x64 self-contained로 생성했고 native SQLite, clean runtime, wrapper, Windows PowerShell 5.1 smoke를 통과했다. 2026-09-22에 이 머신에 실제로 설치해 실제 Provider 로그와 Hook 설치를 처음 검증했고, 그 과정에서 발견한 High 2건(`H-004`, `H-005`)을 고쳤다 — [review.md](../validation/review.md) 참고.
 
-전체 release acceptance는 **Fail**이다. `PERF-001`은 2026-09-21 Codex adapter streaming projection으로 해소했고 공식 warm p95는 821.47 ms다. 남은 항목은 자동 session discovery의 workspace 범위 `SCOPE-001`과 parse/fingerprint 시점 `CONSISTENCY-001`이며 둘 다 Medium으로 열려 있다. 상세 근거와 완료 조건은 [acceptance](../validation/acceptance.md), [review](../validation/review.md), [performance](../validation/performance.md)에 있다.
+전체 release acceptance는 **Pass**다(2026-09-22). `PERF-001`은 2026-09-21 Codex adapter streaming projection으로 해소했고 공식 warm p95는 821.47 ms다. 자동 session discovery의 workspace 범위 `SCOPE-001`은 2026-09-22 canonical Git root 기반 필터로 해소했다. 남은 항목은 release를 막지 않는 parse/fingerprint 시점 `CONSISTENCY-001`(Medium) 하나다. 상세 근거와 완료 조건은 [acceptance](../validation/acceptance.md), [review](../validation/review.md), [performance](../validation/performance.md)에 있다.
 
 User-confirm 원문과 ideas 문서는 TASK-014에서 수정하지 않았다.

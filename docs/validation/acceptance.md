@@ -2,9 +2,9 @@
 
 ## 판정
 
-전체 판정은 **Fail**이다. TASK-014 High 수정 후 Release 전체 테스트는 134/134(단위 54, 통합 80) 통과했고, `PERF-001` 최적화 뒤 재실행에서는 147/147(단위 67, 통합 80) 통과했다. 2026-09-22 실제 Provider 로그 검증(H-004/H-005, [review.md](review.md)) 이후에는 162/162(단위 77, 통합 85) 통과한다. 두 Provider의 합성 전체 흐름, 저장·migration, Hook, 패키징, RSS와 Hook latency는 검증되었다.
+전체 판정은 **Pass**다(2026-09-22, `SCOPE-001` 해소 이후). TASK-014 High 수정 후 Release 전체 테스트는 134/134(단위 54, 통합 80) 통과했고, `PERF-001` 최적화 뒤 재실행에서는 147/147(단위 67, 통합 80) 통과했다. 2026-09-22 실제 Provider 로그 검증(H-004/H-005)과 `SCOPE-001` 구현 이후에는 176/176(단위 85, 통합 91) 통과한다. 두 Provider의 합성 전체 흐름과 이 머신의 실제 로그, 저장·migration, Hook, 패키징, RSS와 Hook latency는 검증되었다.
 
-`PERF-001`은 **해소**되었다. Codex adapter를 streaming projection으로 바꿔 공식 21 MiB/100,000행 조회의 warm p95가 1,648.19 ms에서 821.47 ms로 내려가 1초 목표를 만족한다([performance.md](performance.md)). 남은 Fail 사유는 자동 session discovery가 workspace를 필터하지 않아 FR-04/FR-05가 Partial인 점 하나다.
+`PERF-001`은 **해소**되었다. Codex adapter를 streaming projection으로 바꿔 공식 21 MiB/100,000행 조회의 warm p95가 1,648.19 ms에서 821.47 ms로 내려가 1초 목표를 만족한다([performance.md](performance.md)). `SCOPE-001`도 **해소**되었다. 자동 session discovery가 이제 Provider 로그에서 추출한 canonical workspace로 후보를 필터한다([review.md](review.md)). 남은 항목은 release를 막지 않는 Medium `CONSISTENCY-001` 하나다.
 
 ## 기능 요구사항
 
@@ -13,8 +13,8 @@
 | FR-01 current | Pass | `EndToEndTests.SyntheticProviderFlow...`의 Claude/Codex current JSON·text 비교 |
 | FR-02 last | Pass | terminal 우선/provisional 결과와 failed terminal 회귀 `CliTests.LastPrefersTerminalAndCurrentIncludesRunning` |
 | FR-03 turns | Pass | Provider별 E2E 시간순 Turn과 usage 전 필드 비교 |
-| FR-04 선택자/workspace | **Partial** | 명시 selector·한글 workspace·PS 5.1은 Pass. 자동 discovery가 workspace를 필터하지 않는 `SCOPE-001` open |
-| FR-05 세션 선택 | **Partial** | 0/1/N, 재검증, 명시 provider/session은 Pass. interactive 후보가 다른 workspace session을 포함할 수 있음 |
+| FR-04 선택자/workspace | Pass | 명시 selector·한글 workspace·PS 5.1, 자동 discovery의 canonical workspace 필터(`SCOPE-001` 해소) 모두 Pass |
+| FR-05 세션 선택 | Pass | 0/1/N, 재검증, 명시 provider/session, workspace 불일치 후보 제외와 unknown 유지 Pass |
 | FR-06 실제 usage/결손 | Pass (합성) | normalization과 Claude/Codex partial/invalid/total-only fixture |
 | FR-07 dedupe | Pass | streaming alias/turn snapshot/replay/fork fixture; TASK-014 same-session fork replay 회귀 |
 | FR-08 JSON/text 동일성 | Pass | E2E가 scope·quality·표시 usage를 비교하고 JSON stdout 단일 객체 검증 |
@@ -29,7 +29,7 @@
 
 | 기준 | 판정 | 증거/제한 |
 |---|---|---|
-| FR-01~14와 두 Provider | **Partial** | 합성 Provider 흐름은 Pass, FR-04/05에 `SCOPE-001` 제한 |
+| FR-01~14와 두 Provider | Pass | 합성 Provider 흐름과 실제 로그, FR-04/05의 canonical workspace 필터(`SCOPE-001` 해소) Pass |
 | 중복·부분 streaming·child 지연·중단·재개·모델 변경 | Pass | unit fixture suite와 expected oracle |
 | 동일 scope 참조 집계 | Pass (합성 oracle) | expected JSON의 수기 산식과 runtime equality |
 | Hook 실패 시 Provider 지속·sync 복구 | Pass | timeout/start failure 비차단, source 복원 worker 저장 |
@@ -44,10 +44,10 @@
 |---|---:|---:|---:|
 | Critical | 0 | 0 | 0 |
 | High | 3 | 3 | 0 |
-| Medium | 3 | 1 | 2 |
+| Medium | 3 | 2 | 1 |
 | Low | 1 | 1 | 0 |
 
-해결한 High는 Codex same-session fork replay identity, migration 중 writer/source 변경, Hook junction allowlist escape다. 열린 Medium은 workspace-blind discovery `SCOPE-001`과 parse/fingerprint TOCTOU `CONSISTENCY-001`이다. 근거, 재현, 파일/줄, 완료 조건은 [review.md](review.md)에 있다. Critical/High 미해결 항목이 없어 TASK-014 작업 자체는 Completed로 기록하지만 release acceptance Fail과 Medium 제한을 바꾸지 않는다.
+해결한 High는 Codex same-session fork replay identity, migration 중 writer/source 변경, Hook junction allowlist escape다. 이후 실제 로그 검증에서 발견한 workspace-blind discovery `SCOPE-001`도 해소했다. 열린 Medium은 parse/fingerprint TOCTOU `CONSISTENCY-001` 하나이며, release acceptance를 막지 않는 제한으로 남긴다. 근거, 재현, 파일/줄, 완료 조건은 [review.md](review.md)에 있다.
 
 ## Provider 및 실행 환경 지원 행렬
 
@@ -65,7 +65,7 @@
 
 | 환경 | 선택자 없음 | 기대 code/read | stdout 계약 | 판정/증거 |
 |---|---|---|---|---|
-| interactive TTY | 0/1/N 후보 규칙 | 3/0 또는 선택, 취소 130 | text | simulated console Pass; actual TTY Not Run; 후보 scope는 SCOPE-001 |
+| interactive TTY | 0/1/N 후보 규칙, workspace 필터 | 3/0 또는 선택, 취소 130 | text | simulated console Pass; actual TTY Not Run; 후보 workspace 필터는 SCOPE-001 해소로 Pass |
 | CI | 즉시 거부 | 4 / read 0 | stderr text | Pass |
 | `--json` | 즉시 거부 | 4 / read 0 | selector JSON 한 개 | Pass, PS 5.1 actual process |
 | stdin pipe | 즉시 거부 | 4 / read 0 | 오염 없음 | Pass |
@@ -102,9 +102,7 @@
 
 `PERF-001`은 해소되었다. Codex adapter가 rollout을 UTF-8 byte 단위로 한 번만 훑는 streaming projection으로 바뀌었고, 지원하지 않는 record는 payload를 materialize하지 않으며, 관측값을 두 번 만들던 구조와 hot loop의 LINQ 할당이 사라졌다. incremental checkpoint는 도입하지 않았으므로 truncate/tail/parser-version fallback 경로도 새로 생기지 않았다. 같은 공식 fixture로 cold 1회/warm 30회를 다시 측정해 warm p95 821.47 ms(목표 ≤1,000 ms), peak RSS max 89.02 MiB(목표 ≤256 MiB)를 모두 만족했다. 집계·dedupe·lineage 결과와 CLI 출력, 종료 코드는 바뀌지 않았고 `tests/fixtures/expected/`의 수동 oracle도 그대로다. 측정과 변경 내역은 [performance.md](performance.md)에 있다.
 
-남은 release 제한은 `SCOPE-001`(FR-04/FR-05의 workspace 필터 부재)이다.
-
-`SCOPE-001`과 `CONSISTENCY-001`의 완료 조건은 [review.md](review.md)에 있다.
+`SCOPE-001`(FR-04/FR-05의 workspace 필터 부재)은 2026-09-22 해소했다. 남은 항목은 release를 막지 않는 `CONSISTENCY-001` 하나다. 완료 조건은 [review.md](review.md)에 있다.
 
 ## 재현 명령
 

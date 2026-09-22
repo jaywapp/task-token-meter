@@ -40,6 +40,7 @@
 | `codex-interrupt-late-child` | main Interrupt, child Interrupt 부재, 늦은 SubagentStop | `codex/interrupt-late-child/revision-1-main.jsonl`, `revision-2-child.jsonl`, `hooks.json` | `expected/codex-interrupt-late-child.json` | C-CODEX-014/015 | rev1 `60`; rev2 `60+20=80`, root key 유지 |
 | `codex-hook-stdout` | Stop/SubagentStop `{}`, Interrupt 빈 stdout, plain/block/context 금지 | `codex/hook-stdout.json` | `expected/codex-hook-stdout.json` | C-CODEX-014/015/016 | 이벤트별 exact neutral bytes 비교; token 산식 없음 |
 | `codex-real-root-shape` | `token_usage_record`가 `event_msg` 없이 root `type`으로 직접 오는 실제 0.153.4 rollout 형태 | `codex/real-root-shape.jsonl` | 없음(unit test 직접 assert) | — | `two-turn-snapshots`의 T1과 동일 수치(`80+150=250` delta, `130+50` input); 분류(classification)만 검증하므로 별도 oracle 없이 `CodexAdapterTests.ReadDetailedRecognizesTheRealRootLevelTokenUsageRecordShape`가 직접 확인 |
+| `codex-workspace-root` | SCOPE-001: `turn_context.cwd`가 turn별 주 출처, 자기 `turn_context`가 없는 turn은 `session_meta.cwd`로 폴백 | `codex/workspace-root.jsonl` | 없음(unit test 직접 assert) | — | workspace 문자열만 확인하므로 별도 oracle 없이 `CodexAdapterTests.ReadDetailedResolvesWorkspaceFromTurnContextWithSessionMetaFallback`가 직접 확인 |
 
 ## 미확인 의미의 표현
 

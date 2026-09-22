@@ -7,7 +7,8 @@ internal enum CodexLineKind
 {
     Ignored,
     SessionMeta,
-    TokenUsageRecord
+    TokenUsageRecord,
+    TurnContext
 }
 
 internal enum CodexRootType
@@ -15,7 +16,8 @@ internal enum CodexRootType
     Other,
     SessionMeta,
     EventMessage,
-    TokenUsageRecord
+    TokenUsageRecord,
+    TurnContext
 }
 
 /// <summary>
@@ -43,6 +45,12 @@ internal struct CodexScannedLine
     public string? MetaThreadId;
     public string? MetaParentThreadId;
     public string? MetaForkedFromThreadId;
+
+    /// <summary>
+    /// Working directory recorded on a session_meta or turn_context line. Discovery metadata only —
+    /// never part of the usage calculation.
+    /// </summary>
+    public string? Cwd;
 
     public CodexNativeUsage Delta;
     public CodexNativeUsage TurnSnapshot;
@@ -143,6 +151,16 @@ internal static class CodexLineScanner
             return;
         }
 
+        // turn_context records the working directory (and workspace_roots, which matches cwd on
+        // every real 0.153.4 sample) once per turn. It carries no usage and only ever sets
+        // discovery metadata (SCOPE-001), so a missing or empty line here never affects a turn's
+        // token totals.
+        if (recordType == CodexRootType.TurnContext)
+        {
+            result.Kind = CodexLineKind.TurnContext;
+            return;
+        }
+
         if (recordType == CodexRootType.EventMessage && payloadIsTokenUsageRecord)
         {
             result.Kind = CodexLineKind.TokenUsageRecord;
@@ -154,7 +172,7 @@ internal static class CodexLineScanner
         var isTokenUsageRecord = false;
         bool seenType = false, seenId = false, seenSessionId = false, seenRootTurnId = false;
         bool seenThreadId = false, seenTurnId = false, seenResponseId = false, seenOriginId = false;
-        bool seenParentThreadId = false, seenForkedFromId = false;
+        bool seenParentThreadId = false, seenForkedFromId = false, seenCwd = false;
         bool seenDelta = false, seenTurnUsage = false, seenSessionUsage = false;
         bool hasDelta = false, hasTurnUsage = false, hasSessionUsage = false;
 
@@ -219,6 +237,12 @@ internal static class CodexLineScanner
                 seenForkedFromId = true;
                 reader.Read();
                 result.MetaForkedFromThreadId = ReadText(ref reader);
+            }
+            else if (!seenCwd && reader.ValueTextEquals("cwd"u8))
+            {
+                seenCwd = true;
+                reader.Read();
+                result.Cwd = ReadText(ref reader);
             }
             else if (!seenDelta && reader.ValueTextEquals("usage"u8))
             {
@@ -354,7 +378,12 @@ internal static class CodexLineScanner
             return CodexRootType.SessionMeta;
         }
 
-        return reader.ValueTextEquals("token_usage_record"u8) ? CodexRootType.TokenUsageRecord : CodexRootType.Other;
+        if (reader.ValueTextEquals("token_usage_record"u8))
+        {
+            return CodexRootType.TokenUsageRecord;
+        }
+
+        return reader.ValueTextEquals("turn_context"u8) ? CodexRootType.TurnContext : CodexRootType.Other;
     }
 
     private static bool IsText(ref Utf8JsonReader reader, ReadOnlySpan<byte> expected)
