@@ -66,7 +66,8 @@ public sealed record ClaudeTurnObservation(
     IReadOnlyList<ClaudeMembership> Membership,
     ClaudeExecutionState ExecutionState,
     IReadOnlyList<string> Diagnostics,
-    string? ObservedAt = null);
+    string? ObservedAt = null,
+    string? WorkspaceRoot = null);
 
 public sealed record ClaudeUnattributedObservation(
     ClaudeNativeUsage NativeUsage,

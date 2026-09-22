@@ -150,7 +150,7 @@ public sealed class CliTests
     {
         private readonly SessionCandidate[] candidates = values.OfType<SessionCandidate>().ToArray();
         private readonly TurnProjection[] turns = values.OfType<TurnProjection>().ToArray();
-        public IReadOnlyList<SessionCandidate> Discover(string? provider, string? sessionId) => candidates;
+        public IReadOnlyList<SessionCandidate> Discover(string? provider, string? sessionId, string? workspace = null) => candidates;
         public Task<IReadOnlyList<TurnProjection>> ReadTurnsAsync(SessionCandidate session, string workspace, CancellationToken cancellationToken) => Task.FromResult<IReadOnlyList<TurnProjection>>(turns);
         public Task<IReadOnlyList<TurnProjection>> SyncAsync(SessionCandidate session, string workspace, CancellationToken cancellationToken) => Task.FromResult<IReadOnlyList<TurnProjection>>(turns);
         public Task<IReadOnlyList<TurnProjection>> RebuildAsync(SessionCandidate session, string workspace, CancellationToken cancellationToken) => Task.FromResult<IReadOnlyList<TurnProjection>>(turns);

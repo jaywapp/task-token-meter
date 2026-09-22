@@ -12,10 +12,10 @@
 |---|---:|---:|---:|
 | Critical | 0 | 0 | 0 |
 | High | 3 | 3 | 0 |
-| Medium | 3 | 1 | 2 |
+| Medium | 3 | 2 | 1 |
 | Low | 1 | 1 | 0 |
 
-미해결 Medium은 `SCOPE-001`과 `CONSISTENCY-001`이다. 둘 다 현재 동작과 완료 조건을 아래에 적었으며 acceptance에서 숨기지 않았다.
+미해결 Medium은 `CONSISTENCY-001`이다. 현재 동작과 완료 조건을 아래에 적었으며 acceptance에서 숨기지 않았다.
 
 ## 수정한 발견 사항
 
@@ -76,18 +76,19 @@
 
 두 건 모두 실제 개인 데이터의 정확한 값이나 경로는 이 문서·커밋·fixture에 남기지 않았다. 재현에 쓴 수치(파일 개수, 반환된 token 합계)만 기록했다.
 
+### SCOPE-001 — 자동 session discovery가 workspace를 필터하지 않음 — 해결 (2026-09-22)
+
+- **근거:** `AdapterCliRuntime.Discover`가 Provider source root 전체를 읽고 provider/session만 필터했다. `--workspace`는 ledger route에만 쓰였고 discovery 계약에는 들어가지 않아, 같은 기본 source root에 여러 workspace 기록이 있으면 interactive 후보에 다른 workspace session이 섞였다.
+- **수정:**
+  1. `src/TaskTokenMeter.Core/Identity/WorkspaceRoot.cs`(신규): 디렉터리를 가장 가까운 Git root로 정규화한다(`.git` 디렉터리와 submodule의 `.git` 파일 모두 인식). 기록된 경로가 더는 존재하지 않으면(로그 이후 삭제·이동) 정규화만 하고 walk는 하지 않는다.
+  2. Claude: `ClaudeAdapter.cs`의 `ParsedRecord`가 root-level `cwd`를 읽고 `CallResult`까지 전달한다. `BuildTurns`가 한 Turn을 구성하는 call들의 canonical workspace가 정확히 하나로 일치하면 그 값을, 0개면 `null`(unknown)을, 2개 이상(드문 turn 중간 디렉터리 변경)이면 `null`과 `workspace_conflict` 진단을 남긴다.
+  3. Codex: `CodexLineScanner.cs`가 root-level `turn_context`(주 출처, `cwd`)와 `session_meta`(폴백, `cwd`)를 인식하도록 `CodexRootType`/`CodexLineKind`에 `TurnContext`를 추가했다. `CodexUsageAdapter.BuildRootTurn`이 turn별로 turn_context 우선, 없으면 session_meta로 같은 canonical-일치 규칙을 적용한다.
+  4. `AdapterCliRuntime.ReadAll`이 `(TurnProjection, WorkspaceRoot)` 튜플을 내보내고, `Discover(provider, sessionId, workspace)`가 요청 workspace를 canonical화해 **known이고 다른 workspace**인 후보만 제외한다. workspace를 판정할 수 없는 후보는 숨기지 않는다(불확실한 데이터를 조용히 감추는 쪽이 더 나쁘다는 이 저장소의 기존 원칙과 동일). `SessionSelectionRequest`에 `Workspace`를 추가해 CLI의 `--workspace`(생략 시 기존 기본 workspace 결정 로직 그대로)가 그대로 전달된다.
+  5. 명시 `--session`이 known-mismatch 후보를 가리키면 필터 단계에서 이미 후보 목록에서 빠지므로, `SessionSelector`가 `CandidateUnavailable`(exit 3)을 반환한다 — 별도 우회 플래그 없이 같은 workspace를 명시하면 정상 동작한다.
+- **실제 데이터 검증:** 이 머신의 실제 `~/.claude/projects`(344개 파일, 269개 세션)에서 특정 workspace로 필터하면 후보가 269개→19개로 줄었고, 다른 workspace의 세션은 정확히 제외됐다. 단일 세션 파일 안에서 turn마다 다른 두 개의 실제 canonical workspace를 정확히 구분했고, 실제로 두 디렉터리를 오간 turn 하나를 `workspace_conflict`로 정확히 표시했다(추측하지 않음). 경로 자체는 이 문서에 남기지 않았다.
+- **회귀:** `tests/TaskTokenMeter.UnitTests/WorkspaceRootTests.cs`(정규화 자체: git root, submodule `.git` 파일, 하위 디렉터리에서 walk-up, 존재하지 않는 경로, 대소문자 무시), `tests/TaskTokenMeter.IntegrationTests/WorkspaceDiscoveryTests.cs`(완료 조건 4번: known-다른-workspace 제외와 unknown 유지, interactive 0/1/N, CI/JSON selector-required, 명시 session의 known mismatch가 자동 수락되지 않음), `CodexAdapterTests.ReadDetailedResolvesWorkspaceFromTurnContextWithSessionMetaFallback`(turn_context 우선, session_meta 폴백).
+
 ## 열린 Medium
-
-### SCOPE-001 — 자동 session discovery가 workspace를 필터하지 않음
-
-`AdapterCliRuntime.Discover`(`src/TaskTokenMeter.Cli/AdapterCliRuntime.cs:46`)는 Provider source root 전체를 읽고 provider/session만 필터한다. `--workspace`는 이후 ledger route에 사용되며 discovery 계약에는 들어가지 않는다. 따라서 여러 workspace 기록이 같은 기본 source root에 있으면 interactive 후보에 다른 workspace session이 섞일 수 있다. 명시 `--provider` + `--session` 조회는 동작하지만, FR-04와 FR-05의 workspace/session 안전성은 Partial이다.
-
-완료 조건:
-
-1. 지원 Provider metadata에서 canonical workspace identity를 추출하고 불명확한 기록은 명시적으로 unknown 처리한다.
-2. discovery가 canonical `--workspace`를 입력받아 후보를 필터한다.
-3. 명시 session의 workspace mismatch를 자동 수락하지 않는다.
-4. 두 workspace가 섞인 fixture에서 interactive 0/1/N, CI/JSON selector, explicit mismatch 회귀 테스트를 통과한다.
 
 ### CONSISTENCY-001 — parse와 source fingerprint 사이 append TOCTOU
 

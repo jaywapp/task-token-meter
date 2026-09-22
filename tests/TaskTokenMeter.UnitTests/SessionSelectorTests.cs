@@ -106,7 +106,7 @@ public sealed class SessionSelectorTests
 
         public int CallCount { get; private set; }
 
-        public IReadOnlyList<SessionCandidate> Discover(string? provider, string? sessionId)
+        public IReadOnlyList<SessionCandidate> Discover(string? provider, string? sessionId, string? workspace = null)
         {
             CallCount++;
             var index = Math.Min(resultIndex++, results.Length - 1);

@@ -1,5 +1,6 @@
 using System.Text.Json;
 using TaskTokenMeter.Core.Contracts;
+using TaskTokenMeter.Core.Identity;
 
 namespace TaskTokenMeter.Adapters.Codex;
 
@@ -88,6 +89,10 @@ public sealed class CodexUsageAdapter : IUsageAdapter
 
         var records = new List<RawRecord>();
         var metadata = new Dictionary<string, SessionMetadata>(StringComparer.Ordinal);
+        // Discovery metadata only (SCOPE-001): the working directory for each turn, read from
+        // turn_context. Never consulted for usage — a missing entry just leaves that turn's
+        // workspace unknown, never invalid.
+        var turnCwd = new Dictionary<string, string?>(StringComparer.Ordinal);
         var diagnostics = new HashSet<string>(StringComparer.Ordinal);
         var tokenRecordCount = 0;
         long sequence = 0;
@@ -127,7 +132,18 @@ public sealed class CodexUsageAdapter : IUsageAdapter
                         metadata[scanned.MetaThreadId] = new SessionMetadata(
                             scanned.SessionId,
                             scanned.MetaParentThreadId,
-                            scanned.MetaForkedFromThreadId);
+                            scanned.MetaForkedFromThreadId,
+                            scanned.Cwd);
+                    }
+
+                    continue;
+                }
+
+                if (scanned.Kind == CodexLineKind.TurnContext)
+                {
+                    if (scanned.TurnId is not null)
+                    {
+                        turnCwd[scanned.TurnId] = scanned.Cwd;
                     }
 
                     continue;
@@ -259,7 +275,7 @@ public sealed class CodexUsageAdapter : IUsageAdapter
             diagnostics.Add("fork_replay_origin_excluded");
         }
 
-        var turns = BuildRootTurns(included, metadata);
+        var turns = BuildRootTurns(included, metadata, turnCwd);
         foreach (var turn in turns)
         {
             diagnostics.UnionWith(turn.Diagnostics);
@@ -286,20 +302,22 @@ public sealed class CodexUsageAdapter : IUsageAdapter
 
     private CodexTurnResult[] BuildRootTurns(
         IReadOnlyList<ExecutionProjection> executions,
-        IReadOnlyDictionary<string, SessionMetadata> metadata)
+        IReadOnlyDictionary<string, SessionMetadata> metadata,
+        IReadOnlyDictionary<string, string?> turnCwd)
     {
         return executions
             .GroupBy(
                 static execution => (execution.RootSessionId, execution.RootTurnId),
                 RootKeyComparer.Instance)
             .OrderBy(static group => group.Min(static execution => execution.Sequence))
-            .Select(group => BuildRootTurn(group.ToArray(), metadata))
+            .Select(group => BuildRootTurn(group.ToArray(), metadata, turnCwd))
             .ToArray();
     }
 
     private CodexTurnResult BuildRootTurn(
         IReadOnlyList<ExecutionProjection> executions,
-        IReadOnlyDictionary<string, SessionMetadata> metadata)
+        IReadOnlyDictionary<string, SessionMetadata> metadata,
+        IReadOnlyDictionary<string, string?> turnCwd)
     {
         var rootSessionId = executions[0].RootSessionId;
         var rootTurnId = executions[0].RootTurnId;
@@ -309,6 +327,28 @@ public sealed class CodexUsageAdapter : IUsageAdapter
             executions.SelectMany(static execution => execution.Diagnostics),
             StringComparer.Ordinal);
         var membership = BuildMembership(executions, rootExecution, metadata);
+
+        // Workspace identity is discovery metadata only (SCOPE-001), resolved independently of the
+        // usage calculation above: turn_context.cwd first, session_meta.cwd as fallback for a turn
+        // whose own turn_context line was never captured. Executions that disagree after
+        // canonicalizing to the nearest Git root (a rare mid-turn directory change) leave the turn's
+        // workspace unknown instead of guessing, with a diagnostic so the ambiguity is visible.
+        var workspaceCandidates = executions
+            .Select(execution =>
+            {
+                var cwd = turnCwd.TryGetValue(execution.TurnId, out var fromTurn) && fromTurn is not null
+                    ? fromTurn
+                    : metadata.TryGetValue(execution.ThreadId, out var sessionMetadata) ? sessionMetadata.Cwd : null;
+                return WorkspaceRoot.TryFindGitRoot(cwd);
+            })
+            .Where(root => root is not null)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        var workspaceRoot = workspaceCandidates.Length == 1 ? workspaceCandidates[0] : null;
+        if (workspaceCandidates.Length > 1)
+        {
+            diagnostics.Add("workspace_conflict");
+        }
 
         if (_capability.RootScope == CodexRootScope.Unknown)
         {
@@ -327,7 +367,8 @@ public sealed class CodexUsageAdapter : IUsageAdapter
                 1,
                 membership,
                 diagnostics.Order(StringComparer.Ordinal).ToArray(),
-                executions.MaxBy(static execution => execution.Sequence)?.ObservedAt);
+                executions.MaxBy(static execution => execution.Sequence)?.ObservedAt,
+                workspaceRoot);
         }
 
         IReadOnlyList<ExecutionProjection> authoritativeExecutions;
@@ -360,7 +401,8 @@ public sealed class CodexUsageAdapter : IUsageAdapter
                 1,
                 membership,
                 diagnostics.Order(StringComparer.Ordinal).ToArray(),
-                executions.MaxBy(static execution => execution.Sequence)?.ObservedAt);
+                executions.MaxBy(static execution => execution.Sequence)?.ObservedAt,
+                workspaceRoot);
         }
 
         var invalid = authoritativeExecutions.Any(static execution => execution.Quality == MeasurementQuality.Invalid);
@@ -402,7 +444,8 @@ public sealed class CodexUsageAdapter : IUsageAdapter
             unknownCount,
             membership,
             diagnostics.Order(StringComparer.Ordinal).ToArray(),
-            authoritativeExecutions.MaxBy(static execution => execution.Sequence)?.ObservedAt);
+            authoritativeExecutions.MaxBy(static execution => execution.Sequence)?.ObservedAt,
+            workspaceRoot);
     }
 
     private CodexMembership[] BuildMembership(
@@ -980,7 +1023,8 @@ public sealed class CodexUsageAdapter : IUsageAdapter
     private sealed record SessionMetadata(
         string RootSessionId,
         string? ParentThreadId,
-        string? ForkedFromThreadId);
+        string? ForkedFromThreadId,
+        string? Cwd);
 
     /// <summary>
     /// One supported usage record, buffered until the whole rollout has been read.

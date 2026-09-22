@@ -43,19 +43,29 @@ public sealed class AdapterCliRuntime : ICliRuntime
             registry, lockManager, this.globalDataRoot, Path.Combine(stateRoot, "migration"));
     }
 
-    public IReadOnlyList<SessionCandidate> Discover(string? provider, string? sessionId)
+    public IReadOnlyList<SessionCandidate> Discover(string? provider, string? sessionId, string? workspace = null)
     {
         // An explicit provider scopes which adapter's sources are read at all: a schema problem in the
         // other provider's real logs must not block a query that never asked about that provider.
         var turns = ReadAll(provider is null ? null : ToProvider(provider)).ToArray();
+
+        // SCOPE-001: canonicalizing here (not once per record — ReadAll already resolved each turn's
+        // own workspace during parsing) applies to whatever the caller passed, whether that is an
+        // explicit --workspace or the CLI's already-canonical default. Walking a path that is already
+        // a Git root just returns it, so this is safe either way.
+        var canonicalWorkspace = string.IsNullOrWhiteSpace(workspace) ? null : WorkspaceRoot.FindGitRoot(workspace);
+
         return turns
-            .Where(item => provider is null || string.Equals(ProviderName(item.TurnKey.Provider), provider, StringComparison.OrdinalIgnoreCase))
-            .Select(static item => new SessionCandidate(item.TurnKey.Provider, item.TurnKey.RootSessionId, null, item.ObservedAt))
+            .Where(item => provider is null || string.Equals(ProviderName(item.Projection.TurnKey.Provider), provider, StringComparison.OrdinalIgnoreCase))
+            .Select(item => new SessionCandidate(item.Projection.TurnKey.Provider, item.Projection.TurnKey.RootSessionId, item.WorkspaceRoot, item.Projection.ObservedAt))
             .Where(item => sessionId is null || string.Equals(item.SessionId, sessionId, StringComparison.Ordinal))
+            // Exclude only a *known* mismatch. A candidate whose workspace could not be resolved from
+            // the log stays — silently hiding data we are not sure about is worse than one extra row.
+            .Where(item => canonicalWorkspace is null || item.WorkspaceId is null || WorkspaceRoot.Matches(item.WorkspaceId, canonicalWorkspace))
             .Distinct()
             .Concat(provider is not null && sessionId is not null && !turns.Any(item =>
-                string.Equals(ProviderName(item.TurnKey.Provider), provider, StringComparison.OrdinalIgnoreCase) &&
-                string.Equals(item.TurnKey.RootSessionId, sessionId, StringComparison.Ordinal))
+                string.Equals(ProviderName(item.Projection.TurnKey.Provider), provider, StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(item.Projection.TurnKey.RootSessionId, sessionId, StringComparison.Ordinal))
                 ? [new SessionCandidate(ToProvider(provider), sessionId, null, null)]
                 : [])
             .GroupBy(static item => (item.Provider, item.SessionId))
@@ -258,15 +268,18 @@ public sealed class AdapterCliRuntime : ICliRuntime
             canonicalWorkspace, StorageMode.Global, globalDataRoot, cancellationToken).ConfigureAwait(false)).ActiveRoute;
     }
 
-    private IEnumerable<TurnProjection> ReadSession(SessionCandidate session) => ReadAll(session.Provider).Where(
-        item => item.TurnKey.Provider == session.Provider && item.TurnKey.RootSessionId == session.SessionId);
+    private IEnumerable<TurnProjection> ReadSession(SessionCandidate session) => ReadAll(session.Provider)
+        .Select(item => item.Projection)
+        .Where(item => item.TurnKey.Provider == session.Provider && item.TurnKey.RootSessionId == session.SessionId);
 
     /// <summary>
-    /// Reads projected turns from the configured adapters. When <paramref name="providerFilter"/> is set,
-    /// every other provider's adapter is skipped entirely, so a real-log schema problem in one provider's
-    /// sources never blocks a query that only asked about the other provider.
+    /// Reads projected turns from the configured adapters, paired with each turn's own canonical
+    /// workspace (SCOPE-001) so <see cref="Discover"/> can filter candidates without a second parse
+    /// pass. When <paramref name="providerFilter"/> is set, every other provider's adapter is skipped
+    /// entirely, so a real-log schema problem in one provider's sources never blocks a query that only
+    /// asked about the other provider.
     /// </summary>
-    private IEnumerable<TurnProjection> ReadAll(ProviderKind? providerFilter = null)
+    private IEnumerable<(TurnProjection Projection, string? WorkspaceRoot)> ReadAll(ProviderKind? providerFilter = null)
     {
         foreach (var pair in adapters)
         {
@@ -278,14 +291,14 @@ public sealed class AdapterCliRuntime : ICliRuntime
             {
                 var result = claude.ReadSnapshot(paths);
                 if (result.Status == ClaudeReadStatus.Unsupported) throw new UnsupportedSourceException(pair.Key);
-                foreach (var turn in result.Turns) yield return ToProjection(result, turn, SourceCompletenessFor(pair.Key, paths, result.Diagnostics));
+                foreach (var turn in result.Turns) yield return (ToProjection(result, turn, SourceCompletenessFor(pair.Key, paths, result.Diagnostics)), turn.WorkspaceRoot);
                 continue;
             }
             if (pair.Value is CodexUsageAdapter codex)
             {
                 var result = codex.ReadDetailed(paths);
                 if (!result.IsSupported) throw new UnsupportedSourceException(pair.Key);
-                foreach (var turn in result.Turns) yield return ToProjection(result, turn, SourceCompletenessFor(pair.Key, paths, result.Diagnostics));
+                foreach (var turn in result.Turns) yield return (ToProjection(result, turn, SourceCompletenessFor(pair.Key, paths, result.Diagnostics)), turn.WorkspaceRoot);
                 continue;
             }
             var foundSupported = false;
@@ -293,7 +306,7 @@ public sealed class AdapterCliRuntime : ICliRuntime
             {
                 if (!pair.Value.CanRead(path)) continue;
                 foundSupported = true;
-                foreach (var turn in pair.Value.Read(path)) yield return ToProjection(turn);
+                foreach (var turn in pair.Value.Read(path)) yield return (ToProjection(turn), null);
             }
             if (configured.IsExplicit && !foundSupported) throw new UnsupportedSourceException(pair.Key);
         }

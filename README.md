@@ -120,7 +120,7 @@ task-token-meter turns   --provider codex --session "<session-id>" --json  # 전
 
 `--json`을 주면 stdout에 JSON 객체 하나만 쓴다. `--strict`는 실측(observed)이 아닌 값이 하나라도 섞여 있으면 정상 출력 뒤 exit code 6으로 알린다.
 
-세션을 여러 개 조회할 수 있는 상황에서 `--session`을 생략하면, 실제 터미널에서는 번호로 고를 수 있고 CI·파이프·`--json` 환경에서는 기다리지 않고 exit code 4를 반환한다.
+세션을 여러 개 조회할 수 있는 상황에서 `--session`을 생략하면, 실제 터미널에서는 번호로 고를 수 있고 CI·파이프·`--json` 환경에서는 기다리지 않고 exit code 4를 반환한다. 후보는 현재 workspace(생략 시 가장 가까운 Git root)와 일치하는 세션으로 자동 좁혀지며, workspace를 알 수 없는 세션은 숨기지 않고 후보에 남는다. `--workspace`로 명시한 session이 다른 workspace 기록으로 확인되면 자동으로 받아들이지 않는다.
 
 ## Hook으로 자동 측정하기
 
@@ -173,12 +173,11 @@ task-token-meter storage migrate --workspace . --to workspace
 
 ## 현재 상태
 
-> 아직 **preview**다. 기능·성능·패키징 검증은 끝났고 이 PC에서 실제 Claude Code·Codex 로그로도 확인했지만, 정식(stable) 배포 기준은 아직 다 채우지 못했다. 상세 근거는 [docs/validation/acceptance.md](docs/validation/acceptance.md)에 있다.
+> 아직 **preview**로만 배포한다. 기능·성능·패키징 검증은 끝났고, 2026-09-22 기준 [수용 판정](docs/validation/acceptance.md)은 **Pass**다 — 이 PC에서 실제 Claude Code·Codex 로그로 확인하는 과정에서 심각한 버그 두 건(H-004, H-005)과 workspace 필터 부재(SCOPE-001)를 발견해 모두 고쳤다. 안정판(stable) 태그는 아래 두 항목이 남아 있어 아직 올리지 않았다.
 
 알려진 제한:
 
-- **세션 후보가 workspace로 걸러지지 않는다.** `--session`을 생략하고 후보를 고를 때, 다른 프로젝트의 세션도 목록에 섞일 수 있다. 재현 가능한 조회를 하려면 `--provider`와 `--session`을 함께 쓴다.
-- 로그를 읽는 시점과 "이 파일이 최신인지" 확인하는 시점이 완전히 같은 순간은 아니다. 그 사이 로그가 이어 써지면 다음 `sync`에서 바로잡히지만, 아주 드물게 한 번의 조회 결과가 최신 상태를 완전히 반영하지 못할 수 있다.
+- 로그를 읽는 시점과 "이 파일이 최신인지" 확인하는 시점이 완전히 같은 순간은 아니다. 그 사이 로그가 이어 써지면 다음 `sync`에서 바로잡히지만, 아주 드물게 한 번의 조회 결과가 최신 상태를 완전히 반영하지 못할 수 있다(`CONSISTENCY-001`, release는 막지 않음).
 - 이 정도 세부 항목까지 포함한 전체 목록은 [docs/validation/review.md](docs/validation/review.md)에 있다.
 
 ### 정식(stable) 버전까지 남은 것
@@ -189,7 +188,7 @@ task-token-meter storage migrate --workspace . --to workspace
 | 실제 Claude Code·Codex 로그로 검증 | ✅ 완료 (2026-09-22) |
 | 설치기 clean install / upgrade / rollback / uninstall 테스트 | ✅ 완료 (CI에 포함) |
 | 라이선스 명시 | ✅ 완료 (MIT) |
-| **세션 자동탐색의 workspace 필터링** | ⬜ 남음 |
+| 세션 자동탐색의 workspace 필터링 | ✅ 완료 (2026-09-22, `SCOPE-001`) |
 | Windows 코드 서명 여부 결정 | ⬜ 남음 (지금은 미서명, 안정판 전 재검토 예정) |
 | 패키지 지원 정책 문서화 | ⬜ 남음 |
 

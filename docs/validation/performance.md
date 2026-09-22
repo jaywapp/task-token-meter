@@ -65,6 +65,10 @@ CLI `current` 한 번은 아직 source를 세 번 읽는다. `SessionSelector`�
 - ReadyToRun self-contained package를 같은 공식 fixture로 cold 1회와 warm 1회 비교했을 때 각각 1,627.93 ms와 1,631.11 ms였다. 당시 1초에 근접하지 않아 공식 30회 측정을 반복하지 않았다.
 - 69,155,580-byte stress fixture(100,000개의 완전한 usage record)는 cold 3,395.26 ms, warm 30회 p50 3,410.21 ms, p95 3,504.98 ms, max 3,548.89 ms, peak RSS max 225.25 MiB였다. 이 수치는 20 MiB 수용 기준 판정에 사용하지 않는다.
 
+### SCOPE-001 이후 재확인 (2026-09-22)
+
+SCOPE-001(자동 discovery의 workspace 필터)이 root Turn 하나당 canonical workspace를 한 번 계산하도록 `CodexUsageAdapter.BuildRootTurn`과 Claude `BuildTurns`를 바꿨다. 이 계산은 record 하나마다가 아니라 Turn 하나마다(공식 fixture는 25,000개 record가 소수의 Turn으로 묶인다) 실행되고, 공식 fixture는 `cwd`/`turn_context`/`session_meta.cwd`를 채우지 않으므로 `WorkspaceRoot.TryFindGitRoot`가 즉시 null을 반환해 파일시스템 I/O가 전혀 발생하지 않는다. 같은 공식 fixture로 같은 probe를 다시 실행해 회귀가 없음을 확인했다: cold 1,059.74 ms, warm p50 732.80 ms, p95 764.97 ms, max 778.49 ms, peak RSS max 115.98 MiB. `passed: true`이며 위 공식 수치(warm p95 821.47 ms)와 같은 구간이다.
+
 ## Hook 수락 및 process 시작
 
 `HookEntryPoint`가 검증된 Codex payload를 받아 실제 Windows stub process(`%ComSpec%`, 즉 `cmd.exe`)를 시작하는 경로를 30회 측정했다. neutral stdout `{}`와 종료 코드 0을 매번 확인했다. launcher가 stdin을 곧바로 닫으므로 `/c` 없이 시작된 `cmd.exe`는 EOF를 읽고 즉시 종료한다.

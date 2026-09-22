@@ -65,6 +65,22 @@ public sealed class CodexAdapterTests
     }
 
     [Fact]
+    public void ReadDetailedResolvesWorkspaceFromTurnContextWithSessionMetaFallback()
+    {
+        // SCOPE-001: turn_context.cwd is the primary source per turn; a root turn with no
+        // turn_context line of its own (workspace-fallback) falls back to session_meta.cwd instead
+        // of being left unknown.
+        var result = new CodexUsageAdapter().ReadDetailed(Fixture("codex", "workspace-root.jsonl"));
+
+        Assert.True(result.IsSupported);
+        var fromTurnContext = Assert.Single(result.Turns, turn => turn.RootTurnId == "synthetic-codex-turn-workspace-a");
+        Assert.Equal(@"C:\synthetic-codex-workspace-a", fromTurnContext.WorkspaceRoot);
+
+        var fromSessionMeta = Assert.Single(result.Turns, turn => turn.RootTurnId == "synthetic-codex-turn-workspace-fallback");
+        Assert.Equal(@"C:\synthetic-codex-workspace-fallback", fromSessionMeta.WorkspaceRoot);
+    }
+
+    [Fact]
     public void ReadDetailedPreservesSnapshotAuthorityWhenDeltaValidationFails()
     {
         var result = new CodexUsageAdapter().ReadDetailed(

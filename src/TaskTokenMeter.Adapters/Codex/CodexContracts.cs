@@ -134,7 +134,8 @@ public sealed record CodexTurnResult(
     int UnknownObservationCount,
     IReadOnlyList<CodexMembership> Membership,
     IReadOnlyList<string> Diagnostics,
-    string? ObservedAt)
+    string? ObservedAt,
+    string? WorkspaceRoot = null)
 {
     public TurnSnapshot ToTurnSnapshot() => new(
         "codex",

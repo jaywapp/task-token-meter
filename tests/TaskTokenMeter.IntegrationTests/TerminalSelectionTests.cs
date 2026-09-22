@@ -65,7 +65,7 @@ public sealed class TerminalSelectionTests
 
     private sealed class StaticDiscovery(params SessionCandidate[] candidates) : ISessionDiscovery
     {
-        public IReadOnlyList<SessionCandidate> Discover(string? provider, string? sessionId) => candidates;
+        public IReadOnlyList<SessionCandidate> Discover(string? provider, string? sessionId, string? workspace = null) => candidates;
     }
 
     private sealed class TerminalConsole(params SessionSelectionInput[] inputs) : ISessionSelectionConsole
